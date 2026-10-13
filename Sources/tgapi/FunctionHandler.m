@@ -420,6 +420,32 @@ NSData *patchedSendCodePayload(NSData *payload) {
 // of the payload needs no parsing. When any of them is present the request is
 // left alone.
 
+// Every request that can carry a schedule_date, with the flags of the fields
+// serialized after it. Taken from the generated serializers of this layer: with
+// none of those flags set, schedule_date belongs at the very end of the request.
+typedef struct {
+	int32_t constructor;
+	int32_t fieldsAfterScheduleDate;
+	const char *name;
+} TGExtraSchedulableRequest;
+
+static const TGExtraSchedulableRequest schedulableRequests[] = {
+	{kMessagesSendMessage,     0x1E62000, "messages.sendMessage"},
+	{kMessagesSendMedia,       0x1662000, "messages.sendMedia"},
+	{kMessagesSendMultiMedia,  0x0262000, "messages.sendMultiMedia"},
+	{kMessagesForwardMessages, 0x1B62000, "messages.forwardMessages"}
+};
+
+static const TGExtraSchedulableRequest *schedulableRequest(int32_t constructor) {
+	for (size_t i = 0; i < sizeof(schedulableRequests) / sizeof(schedulableRequests[0]); i++) {
+		if (schedulableRequests[i].constructor == constructor) {
+			return &schedulableRequests[i];
+		}
+	}
+
+	return NULL;
+}
+
 NSData *scheduledSendPayload(NSData *payload) {
 	NSInteger delay = [[NSUserDefaults standardUserDefaults] integerForKey:kScheduleSendDelay];
 	if (delay <= 0) {
@@ -431,7 +457,12 @@ NSData *scheduledSendPayload(NSData *payload) {
 
 	NSUInteger offset = 0;
 	int32_t constructor = 0;
-	if (!tlReadInt32(payload, &offset, &constructor) || constructor != kMessagesSendMessage) {
+	if (!tlReadInt32(payload, &offset, &constructor)) {
+		return nil;
+	}
+
+	const TGExtraSchedulableRequest *request = schedulableRequest(constructor);
+	if (!request) {
 		return nil;
 	}
 
@@ -445,11 +476,8 @@ NSData *scheduledSendPayload(NSData *payload) {
 		return nil; // already scheduled from the app's own menu
 	}
 
-	const int32_t fieldsAfterScheduleDate =
-	    (1 << 24) | (1 << 13) | (1 << 17) | (1 << 18) | (1 << 21) | (1 << 22) | (1 << 23);
-
-	if ((flags & fieldsAfterScheduleDate) != 0) {
-		customLog2(@"messages.sendMessage: flags %d carry fields after schedule_date, sent immediately", flags);
+	if ((flags & request->fieldsAfterScheduleDate) != 0) {
+		customLog2(@"%s: flags %d carry fields after schedule_date, sent immediately", request->name, flags);
 		return nil;
 	}
 
@@ -460,7 +488,7 @@ NSData *scheduledSendPayload(NSData *payload) {
 	[patched replaceBytesInRange:NSMakeRange(flagsOffset, 4) withBytes:&patchedFlags];
 	[patched appendBytes:&scheduleDate length:4];
 
-	customLog2(@"messages.sendMessage: handed to the server to send in %ld s", (long)delay);
+	customLog2(@"%s: handed to the server to send in %ld s", request->name, (long)delay);
 	return patched;
 }
 

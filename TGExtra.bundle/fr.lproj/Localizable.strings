@@ -122,5 +122,5 @@
 "SCHEDULED_SEND_TITLE" = "Send through scheduled messages";
 "SCHEDULED_SEND_SUBTITLE" = "Off. Messages are sent by this session, which marks the account online.";
 "SCHEDULED_SEND_ON" = "On, %ld s: the server sends the message";
-"SCHEDULED_SEND_MESSAGE" = "Seconds to hand the message to the server for, 15 to 600, or 0 to turn this off. The server sends it after that delay, so the account is not put online. Plain text messages only.";
+"SCHEDULED_SEND_MESSAGE" = "Seconds to hand the message to the server for, 15 to 600, or 0 to turn this off. The server sends it after that delay, so the account is not put online. Works for text, photos, files, albums and forwards.";
 "LAUNCHER_HIDDEN_MESSAGE" = "The button is hidden. To bring it back, open the menu with a three finger long press and turn the TG button on again.";

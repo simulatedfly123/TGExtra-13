@@ -68,7 +68,8 @@
 		if (patched) {
 			outgoingPayload = patched;
 		}
-	} else if (functionID == kMessagesSendMessage) {
+	} else {
+		// Text, media, albums and forwards all carry a schedule_date.
 		NSData *scheduled = scheduledSendPayload(payload);
 		if (scheduled) {
 			outgoingPayload = scheduled;
