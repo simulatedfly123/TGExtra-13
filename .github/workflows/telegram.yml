@@ -65,9 +65,11 @@ jobs:
             --buildNumber="$BUILD_NUMBER"
 
           mkdir -p "$GITHUB_WORKSPACE/out"
-          for f in bazel-out/applebin_ios-ios_arm*-opt-ST-*/bin/Telegram/Telegram.ipa; do
-            cp "$f" "$GITHUB_WORKSPACE/out/Telegram.ipa"
-          done
+          IPA="bazel-bin/Telegram/Telegram.ipa"
+          if [ ! -f "$IPA" ]; then
+            IPA=$(find -L bazel-out -path '*/bin/Telegram/Telegram.ipa' | head -n1)
+          fi
+          cp -L "$IPA" "$GITHUB_WORKSPACE/out/Telegram.ipa"
           ls -la "$GITHUB_WORKSPACE/out"
           df -h /
 
