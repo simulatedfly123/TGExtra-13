@@ -8,6 +8,8 @@
 @end
 
 @interface MTRpcError : NSObject
+@property (nonatomic, readonly) int32_t errorCode;
+@property (nonatomic, strong, readonly) NSString *errorDescription;
 - (id)initWithErrorCode:(int)code errorDescription:(id)desc;
 @end
 
@@ -33,6 +35,8 @@ void handleStoriesReadReceipt(MTRequest *request, NSData *payload);
 void handleGetSponsoredMessages(MTRequest *request, NSData *payload);
 void handleChannelsReadReceipt(MTRequest *request, NSData *payload);
 NSData *patchedSendCodePayload(NSData *payload);
+void logAuthCodeResponse(int32_t functionID, NSData *response);
+void logAuthCodeError(int32_t functionID, MTRpcError *error);
 #ifdef __cplusplus
 }
 #endif

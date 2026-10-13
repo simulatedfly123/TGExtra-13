@@ -87,6 +87,17 @@ static NSString *logFilePath() {
     return path;
 }
 
+NSString *customLogPath(void) {
+    return logFilePath();
+}
+
+void customLogClear(void) {
+    NSString *path = logFilePath();
+    if (path) {
+        [@"" writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    }
+}
+
 // Static logging function
 void customLog(NSString *format, ...) {
 	static dispatch_once_t token;

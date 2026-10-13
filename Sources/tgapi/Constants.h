@@ -7,6 +7,9 @@
 #define kStoriesReadStories -1521034552
 #define kGetSponsoredMessages 1030547536 // messages.getSponsoredMessages#3d6ce850 (layer 230)
 #define kAuthSendCode -1502141361 // auth.sendCode#a677244f
+#define kAuthResendCode -890997469 // auth.resendCode#cae47e0
+#define kAuthSentCode 1577067778 // auth.sentCode#5e002502
+#define kAuthSentCodeSuccess 596704836 // auth.sentCodeSuccess#2390fe44
 #define kCodeSettings -1390068360 // codeSettings#ad253d78
 #define kTLVector 481674261 // vector#1cb5c415
 

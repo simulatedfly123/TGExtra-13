@@ -2,6 +2,7 @@
 #import <Foundation/Foundation.h>
 #import "Icons.h"
 #import "Headers.h"
+#import "../Logger/Logger.h"
 
 #define TGLoc(key) [TGExtraLocalization localizedStringForKey:(key)]
 
@@ -160,7 +161,7 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 		case LANGUAGE:
 		   return 1;
 		case CREDITS:
-		   return 2;
+		   return 3;
 		default:
 		   return 0;
 	}
@@ -503,6 +504,14 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 			cell.accessoryView = nil;
 			cell.detailTextLabel.textColor = [UIColor lightGrayColor];
 		}
+		else if (indexPath.row == 2) {
+			cell.textLabel.text = TGLoc(@"TWEAK_LOG_TITLE");
+			cell.detailTextLabel.text = TGLoc(@"TWEAK_LOG_SUBTITLE");
+			cell.imageView.image = [UIImage systemImageNamed:@"doc.text.magnifyingglass"];
+			cell.imageView.tintColor = [self dynamicColorBW];
+			cell.accessoryView = nil;
+			cell.detailTextLabel.textColor = [UIColor lightGrayColor];
+		}
 		cell.textLabel.numberOfLines = 0;
 		cell.detailTextLabel.numberOfLines = 0;
 		return cell;
@@ -548,7 +557,71 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 		else if (indexPath.row == 1) {
 		    [self showDisclaimer];
 		}
+		else if (indexPath.row == 2) {
+		    [self showTweakLog];
+		}
     }
+}
+
+- (NSString *)tweakLogContents {
+	NSString *path = customLogPath();
+	NSString *contents = path ? [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil] : nil;
+
+	if (contents.length == 0) {
+		return nil;
+	}
+
+	// Only the tail is of any use, and the whole file can grow large.
+	if (contents.length > 40000) {
+		contents = [contents substringFromIndex:contents.length - 40000];
+	}
+
+	return contents;
+}
+
+- (void)showTweakLog {
+	UIViewController *viewer = [[UIViewController alloc] init];
+	viewer.title = TGLoc(@"TWEAK_LOG_TITLE");
+	viewer.view.backgroundColor = [UIColor systemBackgroundColor];
+
+	UITextView *textView = [[UITextView alloc] initWithFrame:viewer.view.bounds];
+	textView.text = [self tweakLogContents] ?: TGLoc(@"TWEAK_LOG_EMPTY");
+	textView.editable = NO;
+	textView.font = [UIFont monospacedSystemFontOfSize:11.0 weight:UIFontWeightRegular];
+	textView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+	textView.alwaysBounceVertical = YES;
+	[viewer.view addSubview:textView];
+
+	viewer.navigationItem.rightBarButtonItems = @[
+		[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAction target:self action:@selector(shareTweakLog)],
+		[[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemTrash target:self action:@selector(clearTweakLog)]
+	];
+
+	[self.navigationController pushViewController:viewer animated:YES];
+}
+
+- (void)shareTweakLog {
+	NSString *contents = [self tweakLogContents];
+	if (!contents) {
+		return;
+	}
+
+	UIActivityViewController *share = [[UIActivityViewController alloc] initWithActivityItems:@[contents] applicationActivities:nil];
+	share.popoverPresentationController.sourceView = self.navigationController.view;
+	share.popoverPresentationController.sourceRect = CGRectMake(self.navigationController.view.bounds.size.width - 60.0, 60.0, 1.0, 1.0);
+	[self.navigationController presentViewController:share animated:YES completion:nil];
+}
+
+// Cleared before reproducing something, so the log holds that attempt only.
+- (void)clearTweakLog {
+	customLogClear();
+
+	UIViewController *viewer = self.navigationController.topViewController;
+	for (UIView *subview in viewer.view.subviews) {
+		if ([subview isKindOfClass:[UITextView class]]) {
+			((UITextView *)subview).text = TGLoc(@"TWEAK_LOG_EMPTY");
+		}
+	}
 }
 
 - (void)switchChanged:(UISwitch *)sender {

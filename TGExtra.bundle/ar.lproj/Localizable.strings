@@ -104,3 +104,7 @@
 "QR_LOGIN_SCAN" = "Scan it";
 "QR_LOGIN_UNAVAILABLE" = "No QR login";
 "QR_LOGIN_FAILED" = "QR failed";
+
+"TWEAK_LOG_TITLE" = "Tweak Log";
+"TWEAK_LOG_SUBTITLE" = "What the server answered to the last login code request";
+"TWEAK_LOG_EMPTY" = "The log is empty. Clear it, reproduce the problem, then open this screen again.";

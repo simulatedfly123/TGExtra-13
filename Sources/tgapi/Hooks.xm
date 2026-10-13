@@ -59,11 +59,42 @@
 		}
 	}
 
+	id (^outgoingParser)(NSData *) = responseParser;
 	if ([[NSUserDefaults standardUserDefaults] boolForKey:@"disableForwardRestriction"]) {
-		%orig(outgoingPayload, metadata, shortMetadata, hooked_block);
-	} else {
-		%orig(outgoingPayload, metadata, shortMetadata, responseParser);
+		outgoingParser = hooked_block;
 	}
+
+	// Record what the server answered to a login code request; this is the only
+	// place the chosen delivery method is visible.
+	if (functionID == kAuthSendCode || functionID == kAuthResendCode) {
+		id (^wrappedParser)(NSData *) = outgoingParser;
+		outgoingParser = ^id(NSData *response) {
+			logAuthCodeResponse(functionID, response);
+			return wrappedParser(response);
+		};
+	}
+
+	%orig(outgoingPayload, metadata, shortMetadata, outgoingParser);
+}
+
+// Errors never reach the response parser, so they are picked up here: a code
+// request that is refused (flood limits, a banned or invalid number) looks the
+// same on screen as one that succeeded and delivered nothing.
+- (void)setCompleted:(void (^)(id, MTRequestResponseInfo *, MTRpcError *))completed {
+	int32_t functionID = self.functionID.intValue;
+
+	if (completed && (functionID == kAuthSendCode || functionID == kAuthResendCode)) {
+		void (^wrappedCompleted)(id, MTRequestResponseInfo *, MTRpcError *) = completed;
+		%orig(^(id result, MTRequestResponseInfo *info, MTRpcError *error) {
+			if (error) {
+				logAuthCodeError(functionID, error);
+			}
+			wrappedCompleted(result, info, error);
+		});
+		return;
+	}
+
+	%orig;
 }
 
 %end

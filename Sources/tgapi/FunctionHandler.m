@@ -248,6 +248,7 @@ static BOOL tlSkipBytes(NSData *data, NSUInteger *offset) {
 
 NSData *patchedSendCodePayload(NSData *payload) {
 	if (![[NSUserDefaults standardUserDefaults] boolForKey:kForceSmsLoginCode]) {
+		customLog2(@"auth.sendCode: the SMS login code setting is off, request sent unchanged");
 		return nil;
 	}
 
@@ -280,8 +281,12 @@ NSData *patchedSendCodePayload(NSData *payload) {
 		return nil;
 	}
 
+	customLog2(@"auth.sendCode: codeSettings flags %d (allow_firebase %d, apns token %d)",
+	           flags, (flags & (1 << 7)) ? 1 : 0, (flags & (1 << 8)) ? 1 : 0);
+
 	if ((flags & (1 << 7)) == 0 && (flags & (1 << 8)) == 0) {
-		return nil; // nothing claimed, nothing to strip
+		customLog2(@"auth.sendCode: no push verification claimed, nothing to strip");
+		return nil;
 	}
 
 	if ((flags & (1 << 6)) != 0) { // logout_tokens
@@ -317,6 +322,8 @@ NSData *patchedSendCodePayload(NSData *payload) {
 	// can be dropped. Anything trailing means this is not the layout expected
 	// here, and sending a truncated request would be worse than sending it as is.
 	if (offset != payload.length) {
+		customLog2(@"auth.sendCode: unexpected layout (%lu of %lu bytes parsed), request sent unchanged",
+		           (unsigned long)offset, (unsigned long)payload.length);
 		return nil;
 	}
 
@@ -326,6 +333,64 @@ NSData *patchedSendCodePayload(NSData *payload) {
 
 	customLog2(@"Stripped push code verification from auth.sendCode (flags %d -> %d)", flags, patchedFlags);
 	return patched;
+}
+
+// What the server decided to do with the login code. Without this the client
+// only shows a generic "code sent" screen, so there is no way to tell an app
+// code from an SMS or from a push verification that cannot complete here.
+
+static NSString *sentCodeTypeName(int32_t constructor) {
+	switch (constructor) {
+		case 1035688326:  return @"App: service message to another active session";
+		case -1073693790: return @"SMS";
+		case -1542017919: return @"SMS word";
+		case -1284008785: return @"SMS phrase";
+		case 10475318:    return @"Firebase SMS: needs a silent push first";
+		case 1398007207:  return @"Voice call";
+		case -1425815847: return @"Flash call";
+		case -2113903484: return @"Missed call";
+		case -648651719:  return @"Fragment SMS";
+		case -196020837:  return @"Email code";
+		case -1521934870: return @"Email setup required";
+		default:          return nil;
+	}
+}
+
+static NSString *authRequestName(int32_t functionID) {
+	return functionID == kAuthSendCode ? @"auth.sendCode" : @"auth.resendCode";
+}
+
+void logAuthCodeResponse(int32_t functionID, NSData *response) {
+	NSString *request = authRequestName(functionID);
+
+	if (response.length < 4) {
+		customLog2(@"%@ -> empty response", request);
+		return;
+	}
+
+	int32_t constructor = 0;
+	[response getBytes:&constructor length:4];
+
+	if (constructor == kAuthSentCodeSuccess) {
+		customLog2(@"%@ -> signed in without a code", request);
+		return;
+	}
+
+	if (constructor != kAuthSentCode || response.length < 12) {
+		customLog2(@"%@ -> response %d (%lu bytes)", request, constructor, (unsigned long)response.length);
+		return;
+	}
+
+	// auth.sentCode: flags, then the boxed type
+	int32_t type = 0;
+	[response getBytes:&type range:NSMakeRange(8, 4)];
+
+	NSString *name = sentCodeTypeName(type);
+	customLog2(@"%@ -> delivery: %@ (%d)", request, name ?: @"unrecognised", type);
+}
+
+void logAuthCodeError(int32_t functionID, MTRpcError *error) {
+	customLog2(@"%@ -> error %d %@", authRequestName(functionID), error.errorCode, error.errorDescription);
 }
 
 __attribute__((constructor))
