@@ -115,3 +115,12 @@
 "API_CREDENTIALS_SUBTITLE" = "Not set: using the api_id published in Telegram's own repository";
 "API_CREDENTIALS_MESSAGE" = "Register an application at my.telegram.org/apps and enter its api_id and api_hash. They stay on this device.";
 "API_CREDENTIALS_SAVED" = "Saved. Force quit Telegram and open it again, then request the login code.";
+
+"SHOW_LAUNCHER_TITLE" = "Show the TG button";
+"SHOW_LAUNCHER_SUBTITLE" = "The floating button that opens this menu. With it off, use a three finger long press.";
+"SCHEDULED_SEND_SECTION_HEADER" = "Sending";
+"SCHEDULED_SEND_TITLE" = "Send through scheduled messages";
+"SCHEDULED_SEND_SUBTITLE" = "Off. Messages are sent by this session, which marks the account online.";
+"SCHEDULED_SEND_ON" = "On, %ld s: the server sends the message";
+"SCHEDULED_SEND_MESSAGE" = "Seconds to hand the message to the server for, 15 to 600, or 0 to turn this off. The server sends it after that delay, so the account is not put online. Plain text messages only.";
+"LAUNCHER_HIDDEN_MESSAGE" = "The button is hidden. To bring it back, open the menu with a three finger long press and turn the TG button on again.";
