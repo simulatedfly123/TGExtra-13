@@ -128,3 +128,13 @@
 "SCHEDULED_SEND_ON" = "On, %ld s: the server sends the message";
 "SCHEDULED_SEND_MESSAGE" = "Seconds to hand the message to the server for, 15 to 600, or 0 to turn this off. The server sends it after that delay, so the account is not put online. Works for text, photos, files, albums and forwards.";
 "LAUNCHER_HIDDEN_MESSAGE" = "The button is hidden. To bring it back, open the menu with a three finger long press and turn the TG button on again.";
+
+"ACCOUNT_SECTION_HEADER" = "Account";
+"ACCOUNT_CURRENT" = "Account %ld";
+"ACCOUNT_DETECTED" = "Detected automatically. These settings apply to this account only.";
+"ACCOUNT_PICKED" = "Chosen by hand. Tap to go back to automatic.";
+"ACCOUNT_UNKNOWN_TITLE" = "Account not identified yet";
+"ACCOUNT_UNKNOWN_SUBTITLE" = "Settings are shared until an account is identified. Open a chat and come back.";
+"ACCOUNT_PICKER_MESSAGE" = "Which account the settings in this menu belong to. Sending always uses the settings of the account that is actually sending, whatever is chosen here.";
+"ACCOUNT_AUTO" = "Automatic";
+"ACCOUNT_AUTO_WITH_SLOT" = "Automatic (account %ld)";

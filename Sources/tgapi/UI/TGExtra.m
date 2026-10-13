@@ -14,6 +14,60 @@
 
 @implementation TGExtra
 
+// Which account the menu is editing. The network side always applies the
+// settings of the account that is actually sending, so this only decides what
+// the rows show and where a change is saved.
+- (NSInteger)menuAccountSlot {
+	NSInteger forced = [[NSUserDefaults standardUserDefaults] integerForKey:kForcedAccountSlot];
+	return forced > 0 ? forced : accountSlot(activeAccountKey());
+}
+
+// Settings that belong to the device or the app rather than to an account.
+- (BOOL)isGlobalSettingKey:(NSString *)key {
+	static NSSet *globalKeys;
+	static dispatch_once_t token;
+	dispatch_once(&token, ^{
+		globalKeys = [NSSet setWithArray:@[
+			kForceSmsLoginCode, kShowLauncherButton,
+			FILE_PICKER_FIX_KEY, FAKE_LOCATION_ENABLED_KEY
+		]];
+	});
+
+	return [globalKeys containsObject:key];
+}
+
+- (NSString *)storageKeyFor:(NSString *)key {
+	NSInteger slot = [self menuAccountSlot];
+	if (slot <= 0 || [self isGlobalSettingKey:key]) {
+		return key;
+	}
+
+	return [NSString stringWithFormat:@"%@#%ld", key, (long)slot];
+}
+
+- (BOOL)effectiveBoolFor:(NSString *)key {
+	NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+	NSString *scoped = [self storageKeyFor:key];
+
+	// Not set for this account yet: show what is in effect, the shared value.
+	if (![scoped isEqualToString:key] && [defaults objectForKey:scoped] == nil) {
+		return [defaults boolForKey:key];
+	}
+
+	return [defaults boolForKey:scoped];
+}
+
+- (NSInteger)effectiveIntegerFor:(NSString *)key {
+	NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+	NSString *scoped = [self storageKeyFor:key];
+
+	if (![scoped isEqualToString:key] && [defaults objectForKey:scoped] == nil) {
+		return [defaults integerForKey:key];
+	}
+
+	return [defaults integerForKey:scoped];
+}
+
 - (void)viewDidLoad {
 
 	[self setupTableView];
@@ -143,10 +197,11 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 	CREDITS = 6,
 	API_CREDENTIALS = 7,
 	SCHEDULED_SEND = 8,
+	ACCOUNT_PROFILE = 9,
 };
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
-    return 9;
+    return 10;
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
@@ -168,6 +223,8 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 		case API_CREDENTIALS:
 		   return 1;
 		case SCHEDULED_SEND:
+		   return 1;
+		case ACCOUNT_PROFILE:
 		   return 1;
 		default:
 		   return 0;
@@ -196,6 +253,8 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 		   return TGLoc(@"API_SECTION_HEADER");
 		case SCHEDULED_SEND:
 		   return TGLoc(@"SCHEDULED_SEND_SECTION_HEADER");
+		case ACCOUNT_PROFILE:
+		   return TGLoc(@"ACCOUNT_SECTION_HEADER");
 		default:
 		   return nil;
 	}
@@ -302,7 +361,7 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 		}
 
 		NSString *switchKey = [self switchKeyForIndexPath:indexPath];
-		toggle.on = [[NSUserDefaults standardUserDefaults] boolForKey:switchKey];
+		toggle.on = [self effectiveBoolFor:switchKey];
 		[toggle addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
 		toggle.tag = 1000 + (indexPath.section *1000) + indexPath.row;
 		cell.accessoryView = toggle;
@@ -331,7 +390,7 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 		}
 
 		NSString *switchKey = [self switchKeyForIndexPath:indexPath];
-		toggle.on = [[NSUserDefaults standardUserDefaults] boolForKey:switchKey];
+		toggle.on = [self effectiveBoolFor:switchKey];
 		[toggle addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
 		toggle.tag = 1000 + (indexPath.section *1000) + indexPath.row;
 		cell.accessoryView = toggle;
@@ -367,7 +426,7 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 		}
 
 		NSString *switchKey = [self switchKeyForIndexPath:indexPath];
-		toggle.on = [[NSUserDefaults standardUserDefaults] boolForKey:switchKey];
+		toggle.on = [self effectiveBoolFor:switchKey];
 		[toggle addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
 		toggle.tag = 1000 + (indexPath.section *1000) + indexPath.row;
 		cell.accessoryView = toggle;
@@ -392,7 +451,7 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 			}
 
 			NSString *switchKey = [self switchKeyForIndexPath:indexPath];
-			toggle.on = [[NSUserDefaults standardUserDefaults] boolForKey:switchKey];
+			toggle.on = [self effectiveBoolFor:switchKey];
 			[toggle addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
 			toggle.tag = 1000 + (indexPath.section *1000) + indexPath.row;
 			cell.accessoryView = toggle;
@@ -454,7 +513,7 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 			}
 
 			NSString *switchKey = [self switchKeyForIndexPath:indexPath];
-			toggle.on = [[NSUserDefaults standardUserDefaults] boolForKey:switchKey];
+			toggle.on = [self effectiveBoolFor:switchKey];
 			[toggle addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
 			toggle.tag = 1000 + (indexPath.section *1000) + indexPath.row;
 			cell.accessoryView = toggle;
@@ -497,6 +556,29 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 		}
 	}
 
+	if (indexPath.section == ACCOUNT_PROFILE) {
+		cell = [self normalCellFromTableView:tableView];
+		cell.accessoryView = nil;
+		cell.imageView.image = [UIImage systemImageNamed:@"person.2.fill"];
+		cell.imageView.tintColor = [self dynamicColorBW];
+
+		NSInteger slot = [self menuAccountSlot];
+		BOOL forced = [[NSUserDefaults standardUserDefaults] integerForKey:kForcedAccountSlot] > 0;
+
+		if (slot > 0) {
+			cell.textLabel.text = [NSString stringWithFormat:TGLoc(@"ACCOUNT_CURRENT"), (long)slot];
+			cell.detailTextLabel.text = forced ? TGLoc(@"ACCOUNT_PICKED") : TGLoc(@"ACCOUNT_DETECTED");
+		} else {
+			cell.textLabel.text = TGLoc(@"ACCOUNT_UNKNOWN_TITLE");
+			cell.detailTextLabel.text = TGLoc(@"ACCOUNT_UNKNOWN_SUBTITLE");
+		}
+
+		cell.detailTextLabel.textColor = [UIColor lightGrayColor];
+		cell.textLabel.numberOfLines = 0;
+		cell.detailTextLabel.numberOfLines = 0;
+		return cell;
+	}
+
 	if (indexPath.section == SCHEDULED_SEND) {
 		cell = [self normalCellFromTableView:tableView];
 		cell.accessoryView = nil;
@@ -504,7 +586,7 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 		cell.imageView.tintColor = [self dynamicColorBW];
 		cell.textLabel.text = TGLoc(@"SCHEDULED_SEND_TITLE");
 
-		NSInteger delay = [[NSUserDefaults standardUserDefaults] integerForKey:kScheduleSendDelay];
+		NSInteger delay = [self effectiveIntegerFor:kScheduleSendDelay];
 		if (delay > 0) {
 			cell.detailTextLabel.text = [NSString stringWithFormat:TGLoc(@"SCHEDULED_SEND_ON"), (long)delay];
 		} else {
@@ -625,11 +707,49 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 	if (indexPath.section == SCHEDULED_SEND) {
 		[self showScheduledSendEditor];
 	}
+
+	if (indexPath.section == ACCOUNT_PROFILE) {
+		[self showAccountPicker];
+	}
+}
+
+// Detection follows the account reporting presence, which is the one in the
+// foreground. If that ever picks the wrong one, the slot can be set by hand.
+- (void)showAccountPicker {
+	NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+	NSDictionary *slots = [defaults dictionaryForKey:kAccountSlots] ?: @{};
+	NSInteger detected = accountSlot(activeAccountKey());
+
+	UIAlertController *picker = [UIAlertController alertControllerWithTitle:TGLoc(@"ACCOUNT_SECTION_HEADER")
+	                                                               message:TGLoc(@"ACCOUNT_PICKER_MESSAGE")
+	                                                        preferredStyle:UIAlertControllerStyleAlert];
+
+	NSString *autoTitle = detected > 0
+	    ? [NSString stringWithFormat:TGLoc(@"ACCOUNT_AUTO_WITH_SLOT"), (long)detected]
+	    : TGLoc(@"ACCOUNT_AUTO");
+
+	[picker addAction:[UIAlertAction actionWithTitle:autoTitle style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+		[defaults removeObjectForKey:kForcedAccountSlot];
+		[self.tableView reloadData];
+	}]];
+
+	NSArray *known = [slots.allValues sortedArrayUsingSelector:@selector(compare:)];
+	for (NSNumber *slot in known) {
+		NSString *title = [NSString stringWithFormat:TGLoc(@"ACCOUNT_CURRENT"), (long)slot.integerValue];
+		[picker addAction:[UIAlertAction actionWithTitle:title style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+			[defaults setInteger:slot.integerValue forKey:kForcedAccountSlot];
+			[self.tableView reloadData];
+		}]];
+	}
+
+	[picker addAction:[UIAlertAction actionWithTitle:TGLoc(@"CANCEL") style:UIAlertActionStyleCancel handler:nil]];
+
+	[self presentViewController:picker animated:YES completion:nil];
 }
 
 - (void)showScheduledSendEditor {
 	NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-	NSInteger current = [defaults integerForKey:kScheduleSendDelay];
+	NSInteger current = [self effectiveIntegerFor:kScheduleSendDelay];
 
 	UIAlertController *editor = [UIAlertController alertControllerWithTitle:TGLoc(@"SCHEDULED_SEND_TITLE")
 	                                                               message:TGLoc(@"SCHEDULED_SEND_MESSAGE")
@@ -644,11 +764,13 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 	[editor addAction:[UIAlertAction actionWithTitle:TGLoc(@"OK") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
 		NSInteger entered = editor.textFields.firstObject.text.integerValue;
 
+		NSString *storageKey = [self storageKeyFor:kScheduleSendDelay];
+
 		if (entered > 0) {
 			entered = MAX(15, MIN(600, entered));
-			[defaults setInteger:entered forKey:kScheduleSendDelay];
+			[defaults setInteger:entered forKey:storageKey];
 		} else {
-			[defaults removeObjectForKey:kScheduleSendDelay];
+			[defaults setInteger:0 forKey:storageKey];
 		}
 
 		[self.tableView reloadData];
@@ -778,7 +900,7 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
     NSString *switchKey = [self switchKeyForIndexPath:indexPath];
 
     if (switchKey) {
-        [[NSUserDefaults standardUserDefaults] setBool:sender.isOn forKey:switchKey];
+        [[NSUserDefaults standardUserDefaults] setBool:sender.isOn forKey:[self storageKeyFor:switchKey]];
     }
 }
 

@@ -1,3 +1,79 @@
+// Which settings belong to which account
+//
+// Requests carry no account, but the service that sends them belongs to one, and
+// its MTProto connection has the account's own auth key. That key is the account
+// identity here; it is mapped to a small slot number so settings keys stay short
+// and the menu can name the account.
+
+NSInteger accountSlot(NSString *account) {
+	if (account.length == 0) {
+		return 0;
+	}
+
+	NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+	NSDictionary *slots = [defaults dictionaryForKey:kAccountSlots] ?: @{};
+
+	NSNumber *existing = slots[account];
+	if (existing) {
+		return existing.integerValue;
+	}
+
+	NSInteger next = 1;
+	for (NSNumber *slot in slots.allValues) {
+		next = MAX(next, slot.integerValue + 1);
+	}
+
+	NSMutableDictionary *updated = [slots mutableCopy];
+	updated[account] = @(next);
+	[defaults setObject:updated forKey:kAccountSlots];
+
+	return next;
+}
+
+static NSString *scopedKey(NSString *key, NSString *account) {
+	NSInteger slot = accountSlot(account);
+	return slot > 0 ? [NSString stringWithFormat:@"%@#%ld", key, (long)slot] : key;
+}
+
+BOOL accountBoolForKey(NSString *key, NSString *account) {
+	NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+	NSString *scoped = scopedKey(key, account);
+
+	if (![scoped isEqualToString:key] && [defaults objectForKey:scoped] != nil) {
+		return [defaults boolForKey:scoped];
+	}
+
+	return [defaults boolForKey:key];
+}
+
+NSInteger accountIntegerForKey(NSString *key, NSString *account) {
+	NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+	NSString *scoped = scopedKey(key, account);
+
+	if (![scoped isEqualToString:key] && [defaults objectForKey:scoped] != nil) {
+		return [defaults integerForKey:scoped];
+	}
+
+	return [defaults integerForKey:key];
+}
+
+// The account the menu edits. Presence is reported for the account in the
+// foreground, which is the one the user is looking at.
+void noteActiveAccount(NSString *account) {
+	if (account.length == 0) {
+		return;
+	}
+
+	NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+	if (![[defaults stringForKey:kActiveAccount] isEqualToString:account]) {
+		[defaults setObject:account forKey:kActiveAccount];
+	}
+}
+
+NSString *activeAccountKey(void) {
+	return [[NSUserDefaults standardUserDefaults] stringForKey:kActiveAccount];
+}
+
 #import "Headers.h"
 
 NSData *boolTrue() {
@@ -11,14 +87,14 @@ NSData *boolFalse() {
 }
 
 // Handlers
-void handleOnlineStatus(MTRequest *request, NSData *payload) {
+void handleOnlineStatus(MTRequest *request, NSData *payload, NSString *account) {
 	
 	NSData *isOfflineData = [payload subdataWithRange:NSMakeRange(payload.length - 4, 4)];
 	uint32_t isOffline = 0;
 	[isOfflineData getBytes:&isOffline length:4];
 	
 	if (isOffline == 3162085175) { // Online (BOOL false)
-		if ([[NSUserDefaults standardUserDefaults] boolForKey:kDisableOnlineStatus]) {
+		if (accountBoolForKey(kDisableOnlineStatus, account)) {
 			request.fakeData = boolTrue();
 		}
 	}
@@ -65,7 +141,7 @@ void read_Input_Peer(NSData *data, int *offset) {
 	}
 }
 
-void handleSetTyping(MTRequest *request, NSData *payload) {
+void handleSetTyping(MTRequest *request, NSData *payload, NSString *account) {
 	
 	int offset = 0; 
 	offset += 4; // Skip First 4 Bytes of constructor id;
@@ -82,61 +158,60 @@ void handleSetTyping(MTRequest *request, NSData *payload) {
 	int32_t actionID = 0;
 	[payload getBytes:&actionID range:NSMakeRange(offset, 4)];
 	
-	NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
 	bool shouldBlockAction = false;
 	
 	//customLog(@"Handle Set Typing action : %d actionData:%@", actionID, [payload description]);
 	switch (actionID) {
 		case kActionIDTyping:
-		shouldBlockAction = [defaults boolForKey:kDisableTypingStatus];
+		shouldBlockAction = accountBoolForKey(kDisableTypingStatus, account);
 		  break;
 		case kActionIDRecordingVideo:
-		  shouldBlockAction = [defaults boolForKey:kDisableRecordingVideoStatus];
+		  shouldBlockAction = accountBoolForKey(kDisableRecordingVideoStatus, account);
 		  break;
 		case kActionIDUploadingVideo:
-		  shouldBlockAction = [defaults boolForKey:kDisableUploadingVideoStatus];
+		  shouldBlockAction = accountBoolForKey(kDisableUploadingVideoStatus, account);
 		  break;
 		case kActionIDRecordingAudio:
-		  shouldBlockAction = [defaults boolForKey:kDisableRecordingVoiceStatus];
+		  shouldBlockAction = accountBoolForKey(kDisableRecordingVoiceStatus, account);
 		  break;
 		case kActionIDUploadingVoice:
-		  shouldBlockAction = [defaults boolForKey:kDisableUploadingVoiceStatus];
+		  shouldBlockAction = accountBoolForKey(kDisableUploadingVoiceStatus, account);
 		  break;
 		case kActionIDUploadingPhoto:
-		  shouldBlockAction = [defaults boolForKey:kDisableUploadingPhotoStatus];
+		  shouldBlockAction = accountBoolForKey(kDisableUploadingPhotoStatus, account);
 		  break;
 		case kActionIDUploadingFile:
-		  shouldBlockAction = [defaults boolForKey:kDisableUploadingFileStatus];
+		  shouldBlockAction = accountBoolForKey(kDisableUploadingFileStatus, account);
 		  break;
 		case kActionIDChoosingLocation:
-		  shouldBlockAction = [defaults boolForKey:kDisableChoosingLocationStatus];
+		  shouldBlockAction = accountBoolForKey(kDisableChoosingLocationStatus, account);
 		  break;
 		case kActionIDChoosingContact:
-		  shouldBlockAction = [defaults boolForKey:kDisableChoosingContactStatus];
+		  shouldBlockAction = accountBoolForKey(kDisableChoosingContactStatus, account);
 		  break;
 		case kActionIDPlayingGame:
-		  shouldBlockAction = [defaults boolForKey:kDisablePlayingGameStatus];
+		  shouldBlockAction = accountBoolForKey(kDisablePlayingGameStatus, account);
 		  break;
 		case kActionIDRecordingRoundVideo:
-		  shouldBlockAction = [defaults boolForKey:kDisableRecordingRoundVideoStatus];
+		  shouldBlockAction = accountBoolForKey(kDisableRecordingRoundVideoStatus, account);
 		  break;
 		case kActionIDUploadingRoundVideo:
-		  shouldBlockAction = [defaults boolForKey:kDisableUploadingRoundVideoStatus];
+		  shouldBlockAction = accountBoolForKey(kDisableUploadingRoundVideoStatus, account);
 		  break;
 		case kActionIDSpeakingInGroupCall:
-		  shouldBlockAction = [defaults boolForKey:kDisableSpeakingInGroupCallStatus];
+		  shouldBlockAction = accountBoolForKey(kDisableSpeakingInGroupCallStatus, account);
 		  break;
 		case kActionIDReserverHistoryImport:
-		  shouldBlockAction = [defaults boolForKey:@"reserverHistroyImport"];
+		  shouldBlockAction = accountBoolForKey(@"reserverHistroyImport", account);
 		  break;
 		case kActionIDChoosingSticker:
-		  shouldBlockAction = [defaults boolForKey:kDisableChoosingStickerStatus];
+		  shouldBlockAction = accountBoolForKey(kDisableChoosingStickerStatus, account);
 		  break;
 		case kActionIDEmojiInteraction:
-		  shouldBlockAction = [defaults boolForKey:kDisableEmojiInteractionStatus];
+		  shouldBlockAction = accountBoolForKey(kDisableEmojiInteractionStatus, account);
 		  break;
 		case kActionIDEmojiAcknowledgement:
-		  shouldBlockAction = [defaults boolForKey:kDisableEmojiAcknowledgementStatus];
+		  shouldBlockAction = accountBoolForKey(kDisableEmojiAcknowledgementStatus, account);
 		  break;
 	}
 	
@@ -145,8 +220,8 @@ void handleSetTyping(MTRequest *request, NSData *payload) {
 	}
 }
 
-void handleMessageReadReceipt(MTRequest *request, NSData *payload) {
-	if ([[NSUserDefaults standardUserDefaults] boolForKey:kDisableMessageReadReceipt]) {
+void handleMessageReadReceipt(MTRequest *request, NSData *payload, NSString *account) {
+	if (accountBoolForKey(kDisableMessageReadReceipt, account)) {
 		
 		 uint8_t header[] = {0x85, 0x91, 0xD1, 0x84}; // messages.affectedMessages#84d19185
 		 int32_t pts = 0;
@@ -161,8 +236,8 @@ void handleMessageReadReceipt(MTRequest *request, NSData *payload) {
 	}
 }
 
-void handleStoriesReadReceipt(MTRequest *request, NSData *payload) {
-	if ([[NSUserDefaults standardUserDefaults] boolForKey:kDisableStoriesReadReceipt]) {
+void handleStoriesReadReceipt(MTRequest *request, NSData *payload, NSString *account) {
+	if (accountBoolForKey(kDisableStoriesReadReceipt, account)) {
 		
 		uint8_t vectorID[] = {0x15, 0xC4, 0xB5, 0x1C}; // vector#1cb5c415
 		int32_t count = 0;  
@@ -175,16 +250,16 @@ void handleStoriesReadReceipt(MTRequest *request, NSData *payload) {
 	}
 }
 
-void handleGetSponsoredMessages(MTRequest *request, NSData *payload) {
-	if ([[NSUserDefaults standardUserDefaults] boolForKey:kDisableAllAds]) {
+void handleGetSponsoredMessages(MTRequest *request, NSData *payload, NSString *account) {
+	if (accountBoolForKey(kDisableAllAds, account)) {
 		
 		uint8_t header[] = {0x0F, 0X49, 0X39, 0X18}; // messages.sponsoredMessagesEmpty#1839490f
 		request.fakeData = [NSData dataWithBytes:header length:sizeof(header)];
 	}
 }
 
-void handleChannelsReadReceipt(MTRequest *request, NSData *payload) {
-	if ([[NSUserDefaults standardUserDefaults] boolForKey:kDisableMessageReadReceipt]) {
+void handleChannelsReadReceipt(MTRequest *request, NSData *payload, NSString *account) {
+	if (accountBoolForKey(kDisableMessageReadReceipt, account)) {
 		request.fakeData = boolTrue();
 	}
 }
@@ -446,8 +521,8 @@ static const TGExtraSchedulableRequest *schedulableRequest(int32_t constructor) 
 	return NULL;
 }
 
-NSData *scheduledSendPayload(NSData *payload) {
-	NSInteger delay = [[NSUserDefaults standardUserDefaults] integerForKey:kScheduleSendDelay];
+NSData *scheduledSendPayload(NSData *payload, NSString *account) {
+	NSInteger delay = accountIntegerForKey(kScheduleSendDelay, account);
 	if (delay <= 0) {
 		return nil;
 	}

@@ -65,6 +65,9 @@
 #define kCustomApiHash @"TGExtraApiHash"
 #define kShowLauncherButton @"TGExtraShowLauncherButton"
 #define kScheduleSendDelay @"TGExtraScheduleSendDelay"
+#define kAccountSlots @"TGExtraAccountSlots"
+#define kActiveAccount @"TGExtraActiveAccount"
+#define kForcedAccountSlot @"TGExtraForcedAccountSlot"
 
 #define FAKE_LOCATION_ENABLED_KEY @"TGExtraFakeLocation"
 #define FAKE_LATITUDE_KEY @"TGExtraSavedLatitude"
