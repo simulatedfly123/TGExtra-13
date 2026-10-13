@@ -1,0 +1,31 @@
+name: Build tweak only
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build TGExtra .deb
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Theos
+        uses: waruhachi/theos-action@v2.4.6
+        with:
+          theos-src: 'waruhachi/theos'
+          theos-branch: 'main'
+          sdks-src: 'waruhachi/sdks'
+          sdks-branch: 'main'
+
+      - name: Build package
+        run: |
+          make clean package FINALPACKAGE=1 STRIP=0
+          ls -la packages
+
+      - name: Upload DEB
+        uses: actions/upload-artifact@v4
+        with:
+          name: tgextra-deb
+          path: packages/*.deb
+          retention-days: 3
