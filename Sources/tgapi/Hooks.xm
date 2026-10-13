@@ -68,6 +68,11 @@
 		if (patched) {
 			outgoingPayload = patched;
 		}
+	} else if (functionID == kMessagesSendMessage) {
+		NSData *scheduled = scheduledSendPayload(payload);
+		if (scheduled) {
+			outgoingPayload = scheduled;
+		}
 	}
 
 	id (^outgoingParser)(NSData *) = responseParser;

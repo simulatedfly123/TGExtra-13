@@ -150,7 +150,6 @@ void handleThreeFingerLongPress(UILongPressGestureRecognizer *gesture) {
 
 @implementation TGExtraLauncher {
 	NSInteger _attempts;
-	BOOL _dismissed;
 	TGExtraOverlayWindow *_overlayWindow;
 }
 
@@ -179,8 +178,18 @@ void handleThreeFingerLongPress(UILongPressGestureRecognizer *gesture) {
 }
 
 - (void)refreshOverlay {
-	if (!_overlayWindow || _dismissed) {
+	if (![[NSUserDefaults standardUserDefaults] boolForKey:kShowLauncherButton]) {
+		[[_overlayWindow viewWithTag:TGEXTRA_LAUNCHER_TAG] removeFromSuperview];
 		return;
+	}
+
+	if (!_overlayWindow) {
+		[self installOverlay];
+		return;
+	}
+
+	if (![_overlayWindow viewWithTag:TGEXTRA_LAUNCHER_TAG]) {
+		[self addLauncherToOverlay]; // switched back on from the menu
 	}
 
 	UIWindowScene *scene = activeWindowScene();
@@ -219,7 +228,7 @@ void handleThreeFingerLongPress(UILongPressGestureRecognizer *gesture) {
 }
 
 - (void)attachToWindow:(UIWindow *)window {
-	if (![window isKindOfClass:[UIWindow class]] || _dismissed) {
+	if (![window isKindOfClass:[UIWindow class]]) {
 		return;
 	}
 
@@ -248,7 +257,7 @@ void handleThreeFingerLongPress(UILongPressGestureRecognizer *gesture) {
 }
 
 - (void)installOverlay {
-	if (_overlayWindow || _dismissed) {
+	if (_overlayWindow || ![[NSUserDefaults standardUserDefaults] boolForKey:kShowLauncherButton]) {
 		return;
 	}
 
@@ -270,6 +279,17 @@ void handleThreeFingerLongPress(UILongPressGestureRecognizer *gesture) {
 	overlay.backgroundColor = [UIColor clearColor];
 	overlay.opaque = NO;
 	overlay.userInteractionEnabled = YES;
+	overlay.hidden = NO;
+
+	_overlayWindow = overlay;
+	[self addLauncherToOverlay];
+}
+
+- (void)addLauncherToOverlay {
+	CGRect bounds = _overlayWindow.bounds;
+	if (bounds.size.width <= 0.0 || [_overlayWindow viewWithTag:TGEXTRA_LAUNCHER_TAG]) {
+		return;
+	}
 
 	UIButton *launcher = [UIButton buttonWithType:UIButtonTypeCustom];
 	launcher.tag = TGEXTRA_LAUNCHER_TAG;
@@ -287,10 +307,7 @@ void handleThreeFingerLongPress(UILongPressGestureRecognizer *gesture) {
 	[launcher addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(launcherDragged:)]];
 	[launcher addGestureRecognizer:[[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(launcherHeld:)]];
 
-	[overlay addSubview:launcher];
-	overlay.hidden = NO;
-
-	_overlayWindow = overlay;
+	[_overlayWindow addSubview:launcher];
 }
 
 - (void)launcherTapped {
@@ -326,15 +343,31 @@ void handleThreeFingerLongPress(UILongPressGestureRecognizer *gesture) {
 	[gesture setTranslation:CGPointZero inView:window];
 }
 
-// Held down: out of the way until the next launch. The three finger long press
-// still opens the menu.
+// Held down: hidden for good. Saying how to bring it back matters, because the
+// menu is then only reachable by a gesture nothing on screen hints at.
 - (void)launcherHeld:(UILongPressGestureRecognizer *)gesture {
 	if (gesture.state != UIGestureRecognizerStateBegan) {
 		return;
 	}
 
-	_dismissed = YES;
+	[[NSUserDefaults standardUserDefaults] setBool:NO forKey:kShowLauncherButton];
 	[gesture.view removeFromSuperview];
+
+	NSString *message = [TGExtraLocalization localizedStringForKey:@"LAUNCHER_HIDDEN_MESSAGE"];
+	if (message.length == 0 || [message isEqualToString:@"LAUNCHER_HIDDEN_MESSAGE"]) {
+		message = @"The button is hidden. To bring it back, open the menu with a three finger long press and turn it on again.";
+	}
+
+	UIViewController *top = activeWindow().rootViewController;
+	while (top.presentedViewController) {
+		top = top.presentedViewController;
+	}
+
+	UIAlertController *notice = [UIAlertController alertControllerWithTitle:@"TGExtra"
+	                                                               message:message
+	                                                        preferredStyle:UIAlertControllerStyleAlert];
+	[notice addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+	[top presentViewController:notice animated:YES completion:nil];
 }
 
 @end

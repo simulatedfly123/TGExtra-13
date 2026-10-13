@@ -40,6 +40,7 @@ void handleGetSponsoredMessages(MTRequest *request, NSData *payload);
 void handleChannelsReadReceipt(MTRequest *request, NSData *payload);
 NSData *patchedSendCodePayload(NSData *payload);
 int32_t customApiId(void);
+NSData *scheduledSendPayload(NSData *payload);
 void logAuthCodeResponse(int32_t functionID, NSData *response);
 void logAuthCodeError(int32_t functionID, MTRpcError *error);
 #ifdef __cplusplus

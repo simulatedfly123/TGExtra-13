@@ -142,10 +142,11 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
     LANGUAGE = 5,
 	CREDITS = 6,
 	API_CREDENTIALS = 7,
+	SCHEDULED_SEND = 8,
 };
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
-    return 8;
+    return 9;
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
@@ -155,7 +156,7 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 		case READ_RECEIPT:
 		   return 2;
 		case MISC:
-		   return 3;
+		   return 4;
 		case FILE_FIXER:
 		   return 2;
 		case FAKE_LOCATION:
@@ -165,6 +166,8 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 		case CREDITS:
 		   return 3;
 		case API_CREDENTIALS:
+		   return 1;
+		case SCHEDULED_SEND:
 		   return 1;
 		default:
 		   return 0;
@@ -191,6 +194,8 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 		   return TGLoc(@"CREDITS_SECTION_HEADER");
 		case API_CREDENTIALS:
 		   return TGLoc(@"API_SECTION_HEADER");
+		case SCHEDULED_SEND:
+		   return TGLoc(@"SCHEDULED_SEND_SECTION_HEADER");
 		default:
 		   return nil;
 	}
@@ -351,6 +356,10 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 			cell.textLabel.text = TGLoc(@"FORCE_SMS_LOGIN_CODE_TITLE");
 			cell.detailTextLabel.text = TGLoc(@"FORCE_SMS_LOGIN_CODE_SUBTITLE");
 		}
+		else if (indexPath.row == 3) {
+			cell.textLabel.text = TGLoc(@"SHOW_LAUNCHER_TITLE");
+			cell.detailTextLabel.text = TGLoc(@"SHOW_LAUNCHER_SUBTITLE");
+		}
 
 		UISwitch *toggle = (UISwitch *)cell.accessoryView;
 		if (!toggle || ![toggle isKindOfClass:[UISwitch class]]) {
@@ -488,6 +497,26 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 		}
 	}
 
+	if (indexPath.section == SCHEDULED_SEND) {
+		cell = [self normalCellFromTableView:tableView];
+		cell.accessoryView = nil;
+		cell.imageView.image = [UIImage systemImageNamed:@"clock.arrow.circlepath"];
+		cell.imageView.tintColor = [self dynamicColorBW];
+		cell.textLabel.text = TGLoc(@"SCHEDULED_SEND_TITLE");
+
+		NSInteger delay = [[NSUserDefaults standardUserDefaults] integerForKey:kScheduleSendDelay];
+		if (delay > 0) {
+			cell.detailTextLabel.text = [NSString stringWithFormat:TGLoc(@"SCHEDULED_SEND_ON"), (long)delay];
+		} else {
+			cell.detailTextLabel.text = TGLoc(@"SCHEDULED_SEND_SUBTITLE");
+		}
+
+		cell.detailTextLabel.textColor = [UIColor lightGrayColor];
+		cell.textLabel.numberOfLines = 0;
+		cell.detailTextLabel.numberOfLines = 0;
+		return cell;
+	}
+
 	if (indexPath.section == API_CREDENTIALS) {
 		cell = [self normalCellFromTableView:tableView];
 		cell.accessoryView = nil;
@@ -592,6 +621,42 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 	if (indexPath.section == API_CREDENTIALS) {
 		[self showApiCredentialsEditor];
 	}
+
+	if (indexPath.section == SCHEDULED_SEND) {
+		[self showScheduledSendEditor];
+	}
+}
+
+- (void)showScheduledSendEditor {
+	NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+	NSInteger current = [defaults integerForKey:kScheduleSendDelay];
+
+	UIAlertController *editor = [UIAlertController alertControllerWithTitle:TGLoc(@"SCHEDULED_SEND_TITLE")
+	                                                               message:TGLoc(@"SCHEDULED_SEND_MESSAGE")
+	                                                        preferredStyle:UIAlertControllerStyleAlert];
+
+	[editor addTextFieldWithConfigurationHandler:^(UITextField *field) {
+		field.placeholder = @"0";
+		field.keyboardType = UIKeyboardTypeNumberPad;
+		field.text = current > 0 ? [NSString stringWithFormat:@"%ld", (long)current] : @"";
+	}];
+
+	[editor addAction:[UIAlertAction actionWithTitle:TGLoc(@"OK") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+		NSInteger entered = editor.textFields.firstObject.text.integerValue;
+
+		if (entered > 0) {
+			entered = MAX(15, MIN(600, entered));
+			[defaults setInteger:entered forKey:kScheduleSendDelay];
+		} else {
+			[defaults removeObjectForKey:kScheduleSendDelay];
+		}
+
+		[self.tableView reloadData];
+	}]];
+
+	[editor addAction:[UIAlertAction actionWithTitle:TGLoc(@"CANCEL") style:UIAlertActionStyleCancel handler:nil]];
+
+	[self presentViewController:editor animated:YES completion:nil];
 }
 
 // Entered here rather than compiled in, so the credentials stay on the device.
@@ -751,6 +816,7 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
                 case 0: return kDisableAllAds;
                 case 1: return kDisableForwardRestriction;
                 case 2: return kForceSmsLoginCode;
+                case 3: return kShowLauncherButton;
                 default: return nil;
             }
         case 3:

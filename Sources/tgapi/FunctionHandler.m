@@ -408,6 +408,62 @@ NSData *patchedSendCodePayload(NSData *payload) {
 	return patched;
 }
 
+// Sending through Telegram's own scheduled messages
+//
+// A message handed to the server with a schedule_date is delivered by the
+// server, not by this session, which is what keeps the account from being
+// marked online just for sending. This is the same field the app's own
+// "send later" uses; only the schedule_date is added.
+//
+// schedule_date is serialized before several rarely used fields, so when none
+// of those are present it belongs at the very end of the request and the rest
+// of the payload needs no parsing. When any of them is present the request is
+// left alone.
+
+NSData *scheduledSendPayload(NSData *payload) {
+	NSInteger delay = [[NSUserDefaults standardUserDefaults] integerForKey:kScheduleSendDelay];
+	if (delay <= 0) {
+		return nil;
+	}
+
+	// The server rejects a date that is not far enough ahead.
+	delay = MAX(15, MIN(600, delay));
+
+	NSUInteger offset = 0;
+	int32_t constructor = 0;
+	if (!tlReadInt32(payload, &offset, &constructor) || constructor != kMessagesSendMessage) {
+		return nil;
+	}
+
+	NSUInteger flagsOffset = offset;
+	int32_t flags = 0;
+	if (!tlReadInt32(payload, &offset, &flags)) {
+		return nil;
+	}
+
+	if ((flags & (1 << 10)) != 0) {
+		return nil; // already scheduled from the app's own menu
+	}
+
+	const int32_t fieldsAfterScheduleDate =
+	    (1 << 24) | (1 << 13) | (1 << 17) | (1 << 18) | (1 << 21) | (1 << 22) | (1 << 23);
+
+	if ((flags & fieldsAfterScheduleDate) != 0) {
+		customLog2(@"messages.sendMessage: flags %d carry fields after schedule_date, sent immediately", flags);
+		return nil;
+	}
+
+	int32_t scheduleDate = (int32_t)([[NSDate date] timeIntervalSince1970] + (double)delay);
+	int32_t patchedFlags = flags | (1 << 10);
+
+	NSMutableData *patched = [payload mutableCopy];
+	[patched replaceBytesInRange:NSMakeRange(flagsOffset, 4) withBytes:&patchedFlags];
+	[patched appendBytes:&scheduleDate length:4];
+
+	customLog2(@"messages.sendMessage: handed to the server to send in %ld s", (long)delay);
+	return patched;
+}
+
 // What the server decided to do with the login code. Without this the client
 // only shows a generic "code sent" screen, so there is no way to tell an app
 // code from an SMS or from a push verification that cannot complete here.
@@ -470,5 +526,8 @@ __attribute__((constructor))
 static void registerTGExtraDefaults() {
 	// Push verification cannot work in a re-signed build, so this is on unless
 	// it is explicitly turned off in the menu.
-	[[NSUserDefaults standardUserDefaults] registerDefaults:@{ kForceSmsLoginCode: @YES }];
+	[[NSUserDefaults standardUserDefaults] registerDefaults:@{
+		kForceSmsLoginCode: @YES,
+		kShowLauncherButton: @YES
+	}];
 }

@@ -6,6 +6,7 @@
 #define kMessagesReadHistory 238054714
 #define kStoriesReadStories -1521034552
 #define kGetSponsoredMessages 1030547536 // messages.getSponsoredMessages#3d6ce850 (layer 230)
+#define kMessagesSendMessage -17526942 // messages.sendMessage#fef48f62
 #define kAuthSendCode -1502141361 // auth.sendCode#a677244f
 #define kAuthResendCode -890997469 // auth.resendCode#cae47e0
 #define kAuthSentCode 1577067778 // auth.sentCode#5e002502
@@ -59,6 +60,8 @@
 #define kForceSmsLoginCode @"TGExtraForceSmsLoginCode"
 #define kCustomApiId @"TGExtraApiId"
 #define kCustomApiHash @"TGExtraApiHash"
+#define kShowLauncherButton @"TGExtraShowLauncherButton"
+#define kScheduleSendDelay @"TGExtraScheduleSendDelay"
 
 #define FAKE_LOCATION_ENABLED_KEY @"TGExtraFakeLocation"
 #define FAKE_LATITUDE_KEY @"TGExtraSavedLatitude"
