@@ -31,3 +31,13 @@ This project is an **independent modification (tweak)** for the Telegram app. I 
 This tweak is created solely for **personal and educational purposes**. Use it at your own risk.
 
 **I do not take any responsibility for any issues, damages, or consequences** resulting from the use or misuse of this tweak. If something breaks, it's not my problem.
+
+## Fast tweak updates
+
+Rebuilding Telegram takes ~1.5 hours, but the injected IPA already loads `@rpath/TGExtra.dylib`, so a tweak change only needs the new dylib swapped in:
+
+1. Change the tweak sources, commit and push.
+2. `python tools/quick_update.py --ipa build/ph.telegra.Telegraph-13.0-TGExtra-1.3.0.ipa` builds the tweak with `tweak.yml` (~5-7 minutes), downloads the `.deb` and writes `...-updated-<time>.ipa` next to the input.
+3. Sign and install it as usual.
+
+`tools/update_ipa.py --ipa <ipa> --deb <deb> -o <out>` does only the local swap (arm64 slice of `TGExtra.dylib` + `TGExtra.bundle`). Changes to Telegram itself still need `telegram.yml`.
