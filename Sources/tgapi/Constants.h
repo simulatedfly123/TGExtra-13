@@ -5,7 +5,7 @@
 #define kMessagesSetTypingAction 1486110434
 #define kMessagesReadHistory 238054714
 #define kStoriesReadStories -1521034552
-#define kGetSponsoredMessages -1680673735
+#define kGetSponsoredMessages 1030547536 // messages.getSponsoredMessages#3d6ce850 (layer 230)
 
 #define kActionIDTyping                 381645902                       // .sendMessageTypingAction
 #define kActionIDRecordingVideo        -1584933265                     // .sendMessageRecordVideoAction
@@ -48,7 +48,7 @@
 #define kDisableMessageReadReceipt @"disableMessageReadReceipt"
 #define kDisableStoriesReadReceipt @"disableStoriesReadReceipt"
 
-#define kDisableAllAds @"disableOnlineStatus"
+#define kDisableAllAds @"disableAllAds"
 #define kDisableForwardRestriction @"disableForwardRestriction"
 
 #define FAKE_LOCATION_ENABLED_KEY @"TGExtraFakeLocation"
