@@ -28,6 +28,28 @@ static __weak TGLocalization *TGLocalizationShared = nil;
 
 %end
 
+// Telegram's window routes touches itself: it walks its own subviews but only
+// hit-tests the handful of system classes it knows about, and hands everything
+// else to its content. A view added to that window is drawn and never touched.
+// The launcher button therefore lives in this window, above Telegram's, and
+// every point that is not the button is passed down untouched.
+@interface TGExtraOverlayWindow : UIWindow
+@end
+
+@implementation TGExtraOverlayWindow
+
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
+	UIView *result = [super hitTest:point withEvent:event];
+
+	if (result == self) {
+		return nil;
+	}
+
+	return result;
+}
+
+@end
+
 // keyWindow is nil for the first moments of a launch and empty on a scene based
 // app until a window is attached, so every window lookup goes through here.
 static UIWindow *activeWindow() {
@@ -39,18 +61,46 @@ static UIWindow *activeWindow() {
 		}
 
 		UIWindowScene *windowScene = (UIWindowScene *)scene;
+		UIWindow *fallback = nil;
+
 		for (UIWindow *candidate in windowScene.windows) {
+			if ([candidate isKindOfClass:[TGExtraOverlayWindow class]]) {
+				continue; // ours, never the app's own window
+			}
+
 			if (candidate.isKeyWindow) {
 				return candidate;
 			}
+
+			if (!fallback) {
+				fallback = candidate;
+			}
 		}
 
-		if (windowScene.windows.count > 0) {
-			return windowScene.windows.firstObject;
+		if (fallback) {
+			return fallback;
 		}
 	}
 
 	return application.keyWindow;
+}
+
+static UIWindowScene *activeWindowScene() {
+	NSArray<UIScene *> *scenes = UIApplication.sharedApplication.connectedScenes.allObjects;
+
+	for (UIScene *scene in scenes) {
+		if ([scene isKindOfClass:[UIWindowScene class]] && scene.activationState == UISceneActivationStateForegroundActive) {
+			return (UIWindowScene *)scene;
+		}
+	}
+
+	for (UIScene *scene in scenes) {
+		if ([scene isKindOfClass:[UIWindowScene class]]) {
+			return (UIWindowScene *)scene;
+		}
+	}
+
+	return nil;
 }
 
 void showUI() {
@@ -101,6 +151,7 @@ void handleThreeFingerLongPress(UILongPressGestureRecognizer *gesture) {
 @implementation TGExtraLauncher {
 	NSInteger _attempts;
 	BOOL _dismissed;
+	TGExtraOverlayWindow *_overlayWindow;
 }
 
 + (instancetype)shared {
@@ -119,15 +170,32 @@ void handleThreeFingerLongPress(UILongPressGestureRecognizer *gesture) {
 	                                           object:nil];
 	[self attach];
 
-	// Telegram adds its own views to the window as it launches; keep the button
-	// on top instead of letting it end up underneath them.
+	// The overlay window has to follow rotations and screen size changes, and
+	// Telegram can add windows of its own above ours.
+	__weak TGExtraLauncher *weakSelf = self;
 	[NSTimer scheduledTimerWithTimeInterval:2.0 repeats:YES block:^(NSTimer *timer) {
-		UIWindow *window = activeWindow();
-		UIView *launcher = [window viewWithTag:TGEXTRA_LAUNCHER_TAG];
-		if (launcher) {
-			[window bringSubviewToFront:launcher];
-		}
+		[weakSelf refreshOverlay];
 	}];
+}
+
+- (void)refreshOverlay {
+	if (!_overlayWindow || _dismissed) {
+		return;
+	}
+
+	UIWindowScene *scene = activeWindowScene();
+	CGRect bounds = scene ? scene.coordinateSpace.bounds : UIScreen.mainScreen.bounds;
+
+	if (!CGRectEqualToRect(_overlayWindow.frame, bounds) && bounds.size.width > 0.0) {
+		_overlayWindow.frame = bounds;
+
+		UIView *launcher = [_overlayWindow viewWithTag:TGEXTRA_LAUNCHER_TAG];
+		CGFloat inset = TGEXTRA_LAUNCHER_SIDE / 2.0;
+		launcher.center = CGPointMake(MAX(inset, MIN(bounds.size.width - inset, launcher.center.x)),
+		                              MAX(inset + 20.0, MIN(bounds.size.height - inset - 20.0, launcher.center.y)));
+	}
+
+	_overlayWindow.windowLevel = UIWindowLevelAlert + 1.0;
 }
 
 - (void)windowBecameKey:(NSNotification *)notification {
@@ -136,6 +204,9 @@ void handleThreeFingerLongPress(UILongPressGestureRecognizer *gesture) {
 
 - (void)attach {
 	[self attachToWindow:activeWindow()];
+
+	// Not gated on the app's window: the button only needs a scene.
+	[self installOverlay];
 
 	_attempts += 1;
 	if (_attempts > 120) {
@@ -173,14 +244,37 @@ void handleThreeFingerLongPress(UILongPressGestureRecognizer *gesture) {
 		[window addGestureRecognizer:threeFingerLongPress];
 	}
 
-	if ([window viewWithTag:TGEXTRA_LAUNCHER_TAG] || window.bounds.size.width <= 0.0) {
+	[self installOverlay];
+}
+
+- (void)installOverlay {
+	if (_overlayWindow || _dismissed) {
 		return;
 	}
 
+	// A window has to belong to a scene to be shown at all, so wait for one
+	// rather than creating a window that never appears.
+	UIWindowScene *scene = activeWindowScene();
+	if (!scene) {
+		return;
+	}
+
+	CGRect bounds = scene.coordinateSpace.bounds;
+	if (bounds.size.width <= 0.0) {
+		return;
+	}
+
+	TGExtraOverlayWindow *overlay = [[TGExtraOverlayWindow alloc] initWithWindowScene:scene];
+	overlay.frame = bounds;
+	overlay.windowLevel = UIWindowLevelAlert + 1.0;
+	overlay.backgroundColor = [UIColor clearColor];
+	overlay.opaque = NO;
+	overlay.userInteractionEnabled = YES;
+
 	UIButton *launcher = [UIButton buttonWithType:UIButtonTypeCustom];
 	launcher.tag = TGEXTRA_LAUNCHER_TAG;
-	launcher.frame = CGRectMake(window.bounds.size.width - TGEXTRA_LAUNCHER_SIDE - 10.0,
-	                            floor(window.bounds.size.height * 0.35),
+	launcher.frame = CGRectMake(bounds.size.width - TGEXTRA_LAUNCHER_SIDE - 10.0,
+	                            floor(bounds.size.height * 0.35),
 	                            TGEXTRA_LAUNCHER_SIDE, TGEXTRA_LAUNCHER_SIDE);
 	launcher.backgroundColor = [UIColor colorWithRed:0.0 green:0.48 blue:1.0 alpha:0.55];
 	launcher.layer.cornerRadius = TGEXTRA_LAUNCHER_SIDE / 2.0;
@@ -193,11 +287,25 @@ void handleThreeFingerLongPress(UILongPressGestureRecognizer *gesture) {
 	[launcher addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(launcherDragged:)]];
 	[launcher addGestureRecognizer:[[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(launcherHeld:)]];
 
-	[window addSubview:launcher];
-	[window bringSubviewToFront:launcher];
+	[overlay addSubview:launcher];
+	overlay.hidden = NO;
+
+	_overlayWindow = overlay;
 }
 
 - (void)launcherTapped {
+	// The button floats above the menu it opens, so make a second tap a no-op
+	// instead of stacking another copy on top.
+	UIViewController *top = activeWindow().rootViewController;
+	while (top.presentedViewController) {
+		top = top.presentedViewController;
+	}
+
+	if ([top isKindOfClass:[UINavigationController class]] &&
+	    [[(UINavigationController *)top topViewController] isKindOfClass:[TGExtra class]]) {
+		return;
+	}
+
 	showUI();
 }
 
