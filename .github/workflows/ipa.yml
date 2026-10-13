@@ -29,13 +29,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Same steps as waruhachi/theos-action, minus its cache: on a cache hit the
+      # action runs update-theos, which expects an origin/master branch the fork lacks.
+      - name: Install Theos dependencies
+        run: |
+          echo "THEOS=$GITHUB_WORKSPACE/theos" >> "$GITHUB_ENV"
+          brew install make ldid
+          echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
+
       - name: Set up Theos
-        uses: waruhachi/theos-action@v2.4.6
+        uses: actions/checkout@v4
         with:
-          theos-src: 'waruhachi/theos'
-          theos-branch: 'main'
-          sdks-src: 'waruhachi/sdks'
-          sdks-branch: 'main'
+          repository: waruhachi/theos
+          ref: main
+          submodules: recursive
+          path: theos
+
+      - name: Set up SDKs
+        uses: actions/checkout@v4
+        with:
+          repository: waruhachi/sdks
+          ref: main
+          submodules: recursive
+          path: theos/sdks
 
       - name: Build package
         run: |
