@@ -81,7 +81,7 @@
 @end
 
 %hook MTRequestMessageService
-%property (nonatomic, strong) TGExtraWeakBox *tgextraMtProtoBox;
+%property (nonatomic, strong) id tgextraMtProtoBox;
 %property (nonatomic, strong) NSString *tgextraAccountKey;
 
 - (void)mtProtoWillAddService:(MTProto *)mtProto {
@@ -99,7 +99,7 @@
 		return cached;
 	}
 
-	MTProto *mtProto = self.tgextraMtProtoBox.object;
+	MTProto *mtProto = ((TGExtraWeakBox *)self.tgextraMtProtoBox).object;
 	if (!mtProto) {
 		return nil;
 	}

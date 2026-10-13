@@ -41,6 +41,14 @@ typedef NS_ENUM(int64_t, MTDatacenterAuthInfoSelector) {
 @property (nonatomic) NSInteger datacenterId;
 @end
 
+// Hooked below with properties of our own; Logos only forward declares the
+// class, so the additions have to be visible here.
+@interface MTRequestMessageService : NSObject
+@property (nonatomic, strong) id tgextraMtProtoBox;
+@property (nonatomic, strong) NSString *tgextraAccountKey;
+- (NSString *)__tgextra_accountKey;
+@end
+
 @interface MTRequest : NSObject
 @property (nonatomic, strong) NSNumber *functionID;
 @property (nonatomic, strong) NSData *fakeData;
