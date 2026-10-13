@@ -140,10 +140,11 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
     FAKE_LOCATION = 4,
     LANGUAGE = 5,
 	CREDITS = 6,
+	API_CREDENTIALS = 7,
 };
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
-    return 7;
+    return 8;
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
@@ -162,6 +163,8 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 		   return 1;
 		case CREDITS:
 		   return 3;
+		case API_CREDENTIALS:
+		   return 1;
 		default:
 		   return 0;
 	}
@@ -185,6 +188,8 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 		   return TGLoc(@"LANGUAGE_SECTION_HEADER");
 		case CREDITS:
 		   return TGLoc(@"CREDITS_SECTION_HEADER");
+		case API_CREDENTIALS:
+		   return TGLoc(@"API_SECTION_HEADER");
 		default:
 		   return nil;
 	}
@@ -482,6 +487,27 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 		}
 	}
 
+	if (indexPath.section == API_CREDENTIALS) {
+		cell = [self normalCellFromTableView:tableView];
+		cell.accessoryView = nil;
+		cell.imageView.image = [UIImage systemImageNamed:@"key.fill"];
+		cell.imageView.tintColor = [self dynamicColorBW];
+		cell.textLabel.text = TGLoc(@"API_CREDENTIALS_TITLE");
+
+		int32_t currentApiId = customApiId();
+		NSString *storedHash = [[NSUserDefaults standardUserDefaults] stringForKey:kCustomApiHash];
+		if (currentApiId > 0 && storedHash.length > 0) {
+			cell.detailTextLabel.text = [NSString stringWithFormat:@"api_id %d", currentApiId];
+		} else {
+			cell.detailTextLabel.text = TGLoc(@"API_CREDENTIALS_SUBTITLE");
+		}
+
+		cell.detailTextLabel.textColor = [UIColor lightGrayColor];
+		cell.textLabel.numberOfLines = 0;
+		cell.detailTextLabel.numberOfLines = 0;
+		return cell;
+	}
+
 	if (indexPath.section == 6) { // Credits
 		cell = [self normalCellFromTableView:tableView];
 
@@ -561,6 +587,59 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 		    [self showTweakLog];
 		}
     }
+
+	if (indexPath.section == API_CREDENTIALS) {
+		[self showApiCredentialsEditor];
+	}
+}
+
+// Entered here rather than compiled in, so the credentials stay on the device.
+- (void)showApiCredentialsEditor {
+	NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+	int32_t currentApiId = customApiId();
+
+	UIAlertController *editor = [UIAlertController alertControllerWithTitle:TGLoc(@"API_CREDENTIALS_TITLE")
+	                                                               message:TGLoc(@"API_CREDENTIALS_MESSAGE")
+	                                                        preferredStyle:UIAlertControllerStyleAlert];
+
+	[editor addTextFieldWithConfigurationHandler:^(UITextField *field) {
+		field.placeholder = @"api_id";
+		field.keyboardType = UIKeyboardTypeNumberPad;
+		field.text = currentApiId > 0 ? [NSString stringWithFormat:@"%d", currentApiId] : @"";
+	}];
+
+	[editor addTextFieldWithConfigurationHandler:^(UITextField *field) {
+		field.placeholder = @"api_hash";
+		field.autocapitalizationType = UITextAutocapitalizationTypeNone;
+		field.autocorrectionType = UITextAutocorrectionTypeNo;
+		field.text = [defaults stringForKey:kCustomApiHash] ?: @"";
+	}];
+
+	[editor addAction:[UIAlertAction actionWithTitle:TGLoc(@"OK") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+		NSCharacterSet *trim = [NSCharacterSet whitespaceAndNewlineCharacterSet];
+		NSString *enteredId = [editor.textFields.firstObject.text stringByTrimmingCharactersInSet:trim];
+		NSString *enteredHash = [editor.textFields.lastObject.text stringByTrimmingCharactersInSet:trim];
+
+		if (enteredId.length > 0 && enteredHash.length > 0) {
+			[defaults setObject:enteredId forKey:kCustomApiId];
+			[defaults setObject:enteredHash forKey:kCustomApiHash];
+		} else {
+			[defaults removeObjectForKey:kCustomApiId];
+			[defaults removeObjectForKey:kCustomApiHash];
+		}
+
+		[self.tableView reloadData];
+
+		UIAlertController *saved = [UIAlertController alertControllerWithTitle:TGLoc(@"API_CREDENTIALS_TITLE")
+		                                                              message:TGLoc(@"API_CREDENTIALS_SAVED")
+		                                                       preferredStyle:UIAlertControllerStyleAlert];
+		[saved addAction:[UIAlertAction actionWithTitle:TGLoc(@"OK") style:UIAlertActionStyleDefault handler:nil]];
+		[self presentViewController:saved animated:YES completion:nil];
+	}]];
+
+	[editor addAction:[UIAlertAction actionWithTitle:TGLoc(@"CANCEL") style:UIAlertActionStyleCancel handler:nil]];
+
+	[self presentViewController:editor animated:YES completion:nil];
 }
 
 - (NSString *)tweakLogContents {

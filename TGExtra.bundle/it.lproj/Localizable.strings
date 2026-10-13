@@ -112,3 +112,9 @@
 "TWEAK_LOG_TITLE" = "Tweak Log";
 "TWEAK_LOG_SUBTITLE" = "What the server answered to the last login code request";
 "TWEAK_LOG_EMPTY" = "The log is empty. Clear it, reproduce the problem, then open this screen again.";
+
+"API_SECTION_HEADER" = "Telegram API";
+"API_CREDENTIALS_TITLE" = "API credentials";
+"API_CREDENTIALS_SUBTITLE" = "Not set: using the api_id published in Telegram's own repository";
+"API_CREDENTIALS_MESSAGE" = "Register an application at my.telegram.org/apps and enter its api_id and api_hash. They stay on this device.";
+"API_CREDENTIALS_SAVED" = "Saved. Force quit Telegram and open it again, then request the login code.";

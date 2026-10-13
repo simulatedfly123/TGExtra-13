@@ -111,3 +111,9 @@
 "TWEAK_LOG_TITLE" = "Лог твика";
 "TWEAK_LOG_SUBTITLE" = "Что сервер ответил на последний запрос кода входа";
 "TWEAK_LOG_EMPTY" = "Лог пуст. Очистите его, повторите проблему и откройте этот экран снова.";
+
+"API_SECTION_HEADER" = "API Telegram";
+"API_CREDENTIALS_TITLE" = "Учётные данные API";
+"API_CREDENTIALS_SUBTITLE" = "Не заданы: используется api_id из открытого репозитория Telegram";
+"API_CREDENTIALS_MESSAGE" = "Зарегистрируйте приложение на my.telegram.org/apps и введите его api_id и api_hash. Они останутся на этом устройстве.";
+"API_CREDENTIALS_SAVED" = "Сохранено. Полностью закройте Telegram и откройте снова, затем запросите код входа.";

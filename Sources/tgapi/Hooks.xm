@@ -2,6 +2,17 @@
 
 #define kChannelsReadHistory -871347913
 
+// initConnection carries the api_id on every connection, and the server
+// compares it with the one in auth.sendCode, so both have to agree.
+%hook MTApiEnvironment
+
+- (int32_t)apiId {
+	int32_t custom = customApiId();
+	return custom > 0 ? custom : %orig;
+}
+
+%end
+
 %hook MTRequest
 %property (nonatomic, strong) NSData *fakeData;
 %property (nonatomic, strong) NSNumber *functionID;

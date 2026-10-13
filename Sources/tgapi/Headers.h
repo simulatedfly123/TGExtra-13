@@ -13,6 +13,10 @@
 - (id)initWithErrorCode:(int)code errorDescription:(id)desc;
 @end
 
+@interface MTApiEnvironment : NSObject
+@property (nonatomic) int32_t apiId;
+@end
+
 @interface MTRequestResponseInfo : NSObject
 - (id)initWithNetworkType:(int)a  timestamp:(CGFloat)b  duration:(CGFloat)c;
 @end
@@ -35,6 +39,7 @@ void handleStoriesReadReceipt(MTRequest *request, NSData *payload);
 void handleGetSponsoredMessages(MTRequest *request, NSData *payload);
 void handleChannelsReadReceipt(MTRequest *request, NSData *payload);
 NSData *patchedSendCodePayload(NSData *payload);
+int32_t customApiId(void);
 void logAuthCodeResponse(int32_t functionID, NSData *response);
 void logAuthCodeError(int32_t functionID, MTRpcError *error);
 #ifdef __cplusplus

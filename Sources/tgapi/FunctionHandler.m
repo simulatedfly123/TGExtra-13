@@ -246,11 +246,52 @@ static BOOL tlSkipBytes(NSData *data, NSUInteger *offset) {
 	return YES;
 }
 
-NSData *patchedSendCodePayload(NSData *payload) {
-	if (![[NSUserDefaults standardUserDefaults] boolForKey:kForceSmsLoginCode]) {
-		customLog2(@"auth.sendCode: the SMS login code setting is off, request sent unchanged");
+// The API credentials registered by the user at my.telegram.org. Telegram's
+// public configuration carries api_id 8, which is Telegram's own and is
+// published in their repository; their build guide asks every other build to
+// register its own, and the server treats requests accordingly.
+int32_t customApiId(void) {
+	NSString *value = [[NSUserDefaults standardUserDefaults] stringForKey:kCustomApiId];
+	return (int32_t)value.integerValue;
+}
+
+static NSData *customApiHash(void) {
+	NSString *value = [[NSUserDefaults standardUserDefaults] stringForKey:kCustomApiHash];
+	value = [value stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+
+	if (value.length == 0) {
 		return nil;
 	}
+
+	return [value dataUsingEncoding:NSUTF8StringEncoding];
+}
+
+// A TL string: length header, bytes, then padding to a four byte boundary. The
+// buffer is aligned before the call, so the padding follows from its length.
+static void tlAppendBytes(NSMutableData *data, NSData *value) {
+	NSUInteger length = value.length;
+
+	if (length >= 254) {
+		uint8_t header[4] = {254, (uint8_t)(length & 0xFF), (uint8_t)((length >> 8) & 0xFF), (uint8_t)((length >> 16) & 0xFF)};
+		[data appendBytes:header length:4];
+	} else {
+		uint8_t header = (uint8_t)length;
+		[data appendBytes:&header length:1];
+	}
+
+	[data appendData:value];
+
+	NSUInteger padding = (4 - (data.length % 4)) % 4;
+	if (padding > 0) {
+		uint8_t zeros[4] = {0, 0, 0, 0};
+		[data appendBytes:zeros length:padding];
+	}
+}
+
+NSData *patchedSendCodePayload(NSData *payload) {
+	BOOL stripPush = [[NSUserDefaults standardUserDefaults] boolForKey:kForceSmsLoginCode];
+	int32_t apiId = customApiId();
+	NSData *apiHash = customApiHash();
 
 	NSUInteger offset = 0;
 	int32_t scratch = 0;
@@ -263,13 +304,17 @@ NSData *patchedSendCodePayload(NSData *payload) {
 		return nil;
 	}
 
-	if (!tlReadInt32(payload, &offset, &scratch)) { // api_id
+	NSUInteger apiIdOffset = offset;
+	int32_t currentApiId = 0;
+	if (!tlReadInt32(payload, &offset, &currentApiId)) {
 		return nil;
 	}
 
 	if (!tlSkipBytes(payload, &offset)) { // api_hash
 		return nil;
 	}
+
+	NSUInteger settingsOffset = offset;
 
 	if (!tlReadInt32(payload, &offset, &scratch) || scratch != kCodeSettings) {
 		return nil;
@@ -281,13 +326,8 @@ NSData *patchedSendCodePayload(NSData *payload) {
 		return nil;
 	}
 
-	customLog2(@"auth.sendCode: codeSettings flags %d (allow_firebase %d, apns token %d)",
-	           flags, (flags & (1 << 7)) ? 1 : 0, (flags & (1 << 8)) ? 1 : 0);
-
-	if ((flags & (1 << 7)) == 0 && (flags & (1 << 8)) == 0) {
-		customLog2(@"auth.sendCode: no push verification claimed, nothing to strip");
-		return nil;
-	}
+	customLog2(@"auth.sendCode: api_id %d, codeSettings flags %d (allow_firebase %d, apns token %d)",
+	           currentApiId, flags, (flags & (1 << 7)) ? 1 : 0, (flags & (1 << 8)) ? 1 : 0);
 
 	if ((flags & (1 << 6)) != 0) { // logout_tokens
 		int32_t count = 0;
@@ -318,20 +358,53 @@ NSData *patchedSendCodePayload(NSData *payload) {
 		}
 	}
 
-	// The token is the last field of the request, so everything from it onwards
-	// can be dropped. Anything trailing means this is not the layout expected
-	// here, and sending a truncated request would be worse than sending it as is.
+	// The push fields are the last of the request, so everything from them
+	// onwards can be dropped. Anything trailing means this is not the layout
+	// expected here, and a truncated request would be worse than an unchanged one.
 	if (offset != payload.length) {
 		customLog2(@"auth.sendCode: unexpected layout (%lu of %lu bytes parsed), request sent unchanged",
 		           (unsigned long)offset, (unsigned long)payload.length);
 		return nil;
 	}
 
-	int32_t patchedFlags = flags & ~((1 << 7) | (1 << 8));
-	NSMutableData *patched = [[payload subdataWithRange:NSMakeRange(0, tokenOffset)] mutableCopy];
-	[patched replaceBytesInRange:NSMakeRange(flagsOffset, 4) withBytes:&patchedFlags];
+	BOOL replaceCredentials = (apiId > 0 && apiHash != nil);
+	BOOL hasPushFields = (flags & ((1 << 7) | (1 << 8))) != 0;
+	BOOL dropPushFields = (stripPush && hasPushFields);
 
-	customLog2(@"Stripped push code verification from auth.sendCode (flags %d -> %d)", flags, patchedFlags);
+	if (!replaceCredentials && !dropPushFields) {
+		return nil;
+	}
+
+	// Rebuilt rather than patched in place: a different api_hash changes the
+	// length of everything after it.
+	NSMutableData *patched = [NSMutableData data];
+	[patched appendData:[payload subdataWithRange:NSMakeRange(0, apiIdOffset)]];
+
+	int32_t outgoingApiId = replaceCredentials ? apiId : currentApiId;
+	[patched appendBytes:&outgoingApiId length:4];
+
+	if (replaceCredentials) {
+		tlAppendBytes(patched, apiHash);
+	} else {
+		NSUInteger hashOffset = apiIdOffset + 4;
+		[patched appendData:[payload subdataWithRange:NSMakeRange(hashOffset, settingsOffset - hashOffset)]];
+	}
+
+	int32_t outgoingFlags = dropPushFields ? (flags & ~((1 << 7) | (1 << 8))) : flags;
+	NSUInteger settingsEnd = dropPushFields ? tokenOffset : payload.length;
+
+	NSMutableData *settings = [[payload subdataWithRange:NSMakeRange(settingsOffset, settingsEnd - settingsOffset)] mutableCopy];
+	[settings replaceBytesInRange:NSMakeRange(flagsOffset - settingsOffset, 4) withBytes:&outgoingFlags];
+	[patched appendData:settings];
+
+	if (replaceCredentials) {
+		customLog2(@"auth.sendCode: sending with api_id %d from the tweak settings", outgoingApiId);
+	}
+
+	if (dropPushFields) {
+		customLog2(@"auth.sendCode: stripped push verification (flags %d -> %d)", flags, outgoingFlags);
+	}
+
 	return patched;
 }
 

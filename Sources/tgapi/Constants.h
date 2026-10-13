@@ -57,6 +57,8 @@
 #define kDisableAllAds @"disableAllAds"
 #define kDisableForwardRestriction @"disableForwardRestriction"
 #define kForceSmsLoginCode @"TGExtraForceSmsLoginCode"
+#define kCustomApiId @"TGExtraApiId"
+#define kCustomApiHash @"TGExtraApiHash"
 
 #define FAKE_LOCATION_ENABLED_KEY @"TGExtraFakeLocation"
 #define FAKE_LATITUDE_KEY @"TGExtraSavedLatitude"
