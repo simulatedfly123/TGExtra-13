@@ -2,6 +2,7 @@
 #import <Foundation/Foundation.h>
 #import "Icons.h"
 #import "Headers.h"
+#import "../Headers.h"
 #import "../Logger/Logger.h"
 
 #define TGLoc(key) [TGExtraLocalization localizedStringForKey:(key)]
