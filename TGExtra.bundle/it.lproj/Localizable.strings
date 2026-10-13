@@ -101,3 +101,10 @@
 "DISCLAIMER" = "Avvertenza";
 
 "AUTHOR_MESSAGE" = "Questa modifica per Telegram è solo per uso personale ed educativo. Non siamo in alcun modo affiliati con Telegram. Tutti i marchi, incluso il nome e il logo di Telegram, appartengono ai rispettivi proprietari. Non usare questo tweak per infrangere le regole, fare i furbi o violare i termini di Telegram — non siamo responsabili se qualcosa va storto. Usalo a tuo rischio e pericolo. \n\nInoltre… se ti piace, fammelo sapere. Vivo seriamente di approvazione. \n\nE se vuoi supportarmi con una donazione di uno o due dollari, contattami su Telegram.";
+
+"FORCE_SMS_LOGIN_CODE_TITLE" = "SMS Login Code";
+"FORCE_SMS_LOGIN_CODE_SUBTITLE" = "Do not ask the server for push verification when logging in. Push cannot work in a re-signed build, and without this the login code may never be sent.";
+"QR_LOGIN_TITLE" = "QR login";
+"QR_LOGIN_SCAN" = "Scan it";
+"QR_LOGIN_UNAVAILABLE" = "No QR login";
+"QR_LOGIN_FAILED" = "QR failed";

@@ -152,7 +152,7 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 		case READ_RECEIPT:
 		   return 2;
 		case MISC:
-		   return 2;
+		   return 3;
 		case FILE_FIXER:
 		   return 2;
 		case FAKE_LOCATION:
@@ -339,6 +339,10 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
 		else if (indexPath.row == 1) {
 			cell.textLabel.text = TGLoc(@"ENABLE_SAVING_PROTECTED_CONTENT_TITLE");
 			cell.detailTextLabel.text = TGLoc(@"ENABLE_SAVING_PROTECTED_CONTENT_SUBTITLE");
+		}
+		else if (indexPath.row == 2) {
+			cell.textLabel.text = TGLoc(@"FORCE_SMS_LOGIN_CODE_TITLE");
+			cell.detailTextLabel.text = TGLoc(@"FORCE_SMS_LOGIN_CODE_SUBTITLE");
 		}
 
 		UISwitch *toggle = (UISwitch *)cell.accessoryView;
@@ -593,6 +597,7 @@ typedef NS_ENUM(NSInteger, TABLE_VIEW_SECTIONS) {
             switch (indexPath.row) {
                 case 0: return kDisableAllAds;
                 case 1: return kDisableForwardRestriction;
+                case 2: return kForceSmsLoginCode;
                 default: return nil;
             }
         case 3:

@@ -102,3 +102,10 @@
 "DISCLAIMER" = "Aviso legal";
 
 "AUTHOR_MESSAGE" = "Este ajuste de Telegram es solo para uso personal y educativo. No estamos afiliados con Telegram de ninguna manera. Todas las marcas registradas, incluido el nombre y logo de Telegram, pertenecen a sus respectivos propietarios. No uses esto para romper reglas, hacer cosas sospechosas o violar los términos de Telegram — no nos hacemos responsables si algo sale mal. Úsalo bajo tu propio riesgo.\n\nAdemás... si te gusta, dilo. En serio, vivo del reconocimiento.\n\nY también... si quieres apoyarme donando uno o dos dólares, contáctame por Telegram.";
+
+"FORCE_SMS_LOGIN_CODE_TITLE" = "SMS Login Code";
+"FORCE_SMS_LOGIN_CODE_SUBTITLE" = "Do not ask the server for push verification when logging in. Push cannot work in a re-signed build, and without this the login code may never be sent.";
+"QR_LOGIN_TITLE" = "QR login";
+"QR_LOGIN_SCAN" = "Scan it";
+"QR_LOGIN_UNAVAILABLE" = "No QR login";
+"QR_LOGIN_FAILED" = "QR failed";

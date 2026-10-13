@@ -99,3 +99,10 @@
 "DISCLAIMER" = "免責聲明";
 
 "AUTHOR_MESSAGE" = "本Telegram調整工具僅限於個人及教育用途。我們與Telegram無任何關聯。所有商標，包括Telegram名稱及標誌，皆屬其各自所有者所有。請勿使用本工具違反規則、進行不當行為或違反Telegram的服務條款。若因使用本工具而產生任何問題，我們概不負責，使用者須自行承擔風險。\n \n此外，若您對本工具感到滿意，歡迎提供意見或反饋，您的支持對我們至關重要。\n \n如有意透過小額捐款支持我，請透過Telegram與我聯繫。";
+
+"FORCE_SMS_LOGIN_CODE_TITLE" = "SMS Login Code";
+"FORCE_SMS_LOGIN_CODE_SUBTITLE" = "Do not ask the server for push verification when logging in. Push cannot work in a re-signed build, and without this the login code may never be sent.";
+"QR_LOGIN_TITLE" = "QR login";
+"QR_LOGIN_SCAN" = "Scan it";
+"QR_LOGIN_UNAVAILABLE" = "No QR login";
+"QR_LOGIN_FAILED" = "QR failed";

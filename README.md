@@ -32,6 +32,13 @@ This tweak is created solely for **personal and educational purposes**. Use it a
 
 **I do not take any responsibility for any issues, damages, or consequences** resulting from the use or misuse of this tweak. If something breaks, it's not my problem.
 
+## Logging in on a re-signed build
+
+Two additions for accounts that never receive a login code:
+
+- **SMS Login Code** (Misc section, on by default) strips `allow_firebase` and the APNs token from `auth.sendCode`. With them set the server may answer `sentCodeTypeFirebaseSms`, which expects the client to receive a silent push carrying a secret and return it through `auth.requestFirebaseSms` before any code is sent - a re-signed build never gets that push, so no code is sent at all. Without them the client reports what it can actually do and the server falls back to a plain SMS, exactly as the app itself does when iOS gives it no push token.
+- A **QR login** button on the phone number screen calls the app's own `debugQrTap:`, which exports a login token and draws the code (the same mechanism the desktop client uses). Scan it from a device where the account is already open: Settings -> Devices -> Link Device. A long press on the button opens the app's debug menu, where logging is turned on.
+
 ## Fast tweak updates
 
 Rebuilding Telegram takes ~1.5 hours, but the injected IPA already loads `@rpath/TGExtra.dylib`, so a tweak change only needs the new dylib swapped in:

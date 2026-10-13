@@ -99,3 +99,10 @@
 "DISCLAIMER" = "免責事項";
 
 "AUTHOR_MESSAGE" = "このTweakは個人的かつ教育目的のみで提供されており、Telegram とは一切関係がありません。Telegram の名称やロゴなどの商標はそれぞれの所有者に帰属します。違反行為や規約違反に使わないでください。何か問題が発生しても開発者は責任を負いません。すべて自己責任でご使用ください。\n \nそれと、もし気に入ったら何か感想をください。正直、評価が励みになります。\n \nまた、1～2ドル寄付してサポートしたい場合は、Telegramで連絡してください。";
+
+"FORCE_SMS_LOGIN_CODE_TITLE" = "SMS Login Code";
+"FORCE_SMS_LOGIN_CODE_SUBTITLE" = "Do not ask the server for push verification when logging in. Push cannot work in a re-signed build, and without this the login code may never be sent.";
+"QR_LOGIN_TITLE" = "QR login";
+"QR_LOGIN_SCAN" = "Scan it";
+"QR_LOGIN_UNAVAILABLE" = "No QR login";
+"QR_LOGIN_FAILED" = "QR failed";

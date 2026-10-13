@@ -12,6 +12,7 @@ import gzip
 import hashlib
 import io
 import lzma
+import os
 import struct
 import sys
 import tarfile
@@ -101,6 +102,7 @@ def main():
     if dylib_entry not in names:
         raise SystemExit(f"{dylib_entry} not in IPA: inject TGExtra once with ipa.yml/telegram.yml first")
 
+    os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
     with zipfile.ZipFile(args.output, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as dst:
         for info in src.infolist():
             if info.filename.startswith(bundle_prefix) and not info.is_dir():

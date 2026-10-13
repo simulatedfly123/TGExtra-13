@@ -51,10 +51,18 @@
 		   
 	}
 	
+	NSData *outgoingPayload = payload;
+	if (functionID == kAuthSendCode) {
+		NSData *patched = patchedSendCodePayload(payload);
+		if (patched) {
+			outgoingPayload = patched;
+		}
+	}
+
 	if ([[NSUserDefaults standardUserDefaults] boolForKey:@"disableForwardRestriction"]) {
-		%orig(payload, metadata, shortMetadata, hooked_block);
+		%orig(outgoingPayload, metadata, shortMetadata, hooked_block);
 	} else {
-		%orig(payload, metadata, shortMetadata, responseParser);
+		%orig(outgoingPayload, metadata, shortMetadata, responseParser);
 	}
 }
 

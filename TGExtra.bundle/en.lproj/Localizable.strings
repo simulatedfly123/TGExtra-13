@@ -99,3 +99,10 @@
 "DISCLAIMER" = "Disclaimer";
 
 "AUTHOR_MESSAGE" = "This Telegram tweak is for personal and educational use only. We are not affiliated with Telegram in any way. All trademarks, including the Telegram name and logo, belong to their respective owners. Don’t use this to break rules, be shady, or violate Telegram’s terms—we’re not responsible if things go sideways. Use at your own risk. \n \nAlso… if you like it, say something. I seriously live off validation. \n \nAlso.. If you Want to support me by donating a dollar or Two, Contact me on Telegram";
+
+"FORCE_SMS_LOGIN_CODE_TITLE" = "SMS Login Code";
+"FORCE_SMS_LOGIN_CODE_SUBTITLE" = "Do not ask the server for push verification when logging in. Push cannot work in a re-signed build, and without this the login code may never be sent.";
+"QR_LOGIN_TITLE" = "QR login";
+"QR_LOGIN_SCAN" = "Scan it";
+"QR_LOGIN_UNAVAILABLE" = "No QR login";
+"QR_LOGIN_FAILED" = "QR failed";

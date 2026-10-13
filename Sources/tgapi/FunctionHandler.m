@@ -188,3 +188,149 @@ void handleChannelsReadReceipt(MTRequest *request, NSData *payload) {
 		request.fakeData = boolTrue();
 	}
 }
+
+// Login codes on a re-signed build
+//
+// auth.sendCode advertises two things the app can only back up with a working
+// APNs token: allow_firebase (flag 7) and the token itself (flag 8). When they
+// are set, the server may answer with sentCodeTypeFirebaseSms, which expects the
+// client to receive a silent push carrying a secret and hand it back through
+// auth.requestFirebaseSms before any code is sent. A re-signed build never gets
+// that push, so the code is never sent at all. Clearing both flags leaves the
+// client reporting what it can actually do, and the server falls back to a plain
+// SMS - the same request the app itself sends when iOS gives it no push token.
+
+static BOOL tlReadInt32(NSData *data, NSUInteger *offset, int32_t *value) {
+	if (*offset + 4 > data.length) {
+		return NO;
+	}
+
+	[data getBytes:value range:NSMakeRange(*offset, 4)];
+	*offset += 4;
+	return YES;
+}
+
+// Skips one TL string/bytes field, including its length header and the padding
+// that aligns it to a four byte boundary.
+static BOOL tlSkipBytes(NSData *data, NSUInteger *offset) {
+	if (*offset >= data.length) {
+		return NO;
+	}
+
+	const uint8_t *bytes = (const uint8_t *)data.bytes;
+	NSUInteger headerLength;
+	NSUInteger valueLength;
+
+	if (bytes[*offset] <= 253) {
+		headerLength = 1;
+		valueLength = bytes[*offset];
+	} else {
+		if (*offset + 4 > data.length) {
+			return NO;
+		}
+
+		headerLength = 4;
+		valueLength = (NSUInteger)bytes[*offset + 1] | ((NSUInteger)bytes[*offset + 2] << 8) | ((NSUInteger)bytes[*offset + 3] << 16);
+	}
+
+	NSUInteger total = headerLength + valueLength;
+	if (total % 4 != 0) {
+		total += 4 - (total % 4);
+	}
+
+	if (*offset + total > data.length) {
+		return NO;
+	}
+
+	*offset += total;
+	return YES;
+}
+
+NSData *patchedSendCodePayload(NSData *payload) {
+	if (![[NSUserDefaults standardUserDefaults] boolForKey:kForceSmsLoginCode]) {
+		return nil;
+	}
+
+	NSUInteger offset = 0;
+	int32_t scratch = 0;
+
+	if (!tlReadInt32(payload, &offset, &scratch) || scratch != kAuthSendCode) {
+		return nil;
+	}
+
+	if (!tlSkipBytes(payload, &offset)) { // phone_number
+		return nil;
+	}
+
+	if (!tlReadInt32(payload, &offset, &scratch)) { // api_id
+		return nil;
+	}
+
+	if (!tlSkipBytes(payload, &offset)) { // api_hash
+		return nil;
+	}
+
+	if (!tlReadInt32(payload, &offset, &scratch) || scratch != kCodeSettings) {
+		return nil;
+	}
+
+	NSUInteger flagsOffset = offset;
+	int32_t flags = 0;
+	if (!tlReadInt32(payload, &offset, &flags)) {
+		return nil;
+	}
+
+	if ((flags & (1 << 7)) == 0 && (flags & (1 << 8)) == 0) {
+		return nil; // nothing claimed, nothing to strip
+	}
+
+	if ((flags & (1 << 6)) != 0) { // logout_tokens
+		int32_t count = 0;
+		if (!tlReadInt32(payload, &offset, &scratch) || scratch != kTLVector) {
+			return nil;
+		}
+
+		if (!tlReadInt32(payload, &offset, &count) || count < 0) {
+			return nil;
+		}
+
+		for (int32_t i = 0; i < count; i++) {
+			if (!tlSkipBytes(payload, &offset)) {
+				return nil;
+			}
+		}
+	}
+
+	NSUInteger tokenOffset = offset;
+
+	if ((flags & (1 << 8)) != 0) {
+		if (!tlSkipBytes(payload, &offset)) { // token
+			return nil;
+		}
+
+		if (!tlReadInt32(payload, &offset, &scratch)) { // app_sandbox
+			return nil;
+		}
+	}
+
+	// The token is the last field of the request, so everything from it onwards
+	// can be dropped. Anything trailing means this is not the layout expected
+	// here, and sending a truncated request would be worse than sending it as is.
+	if (offset != payload.length) {
+		return nil;
+	}
+
+	int32_t patchedFlags = flags & ~((1 << 7) | (1 << 8));
+	NSMutableData *patched = [[payload subdataWithRange:NSMakeRange(0, tokenOffset)] mutableCopy];
+	[patched replaceBytesInRange:NSMakeRange(flagsOffset, 4) withBytes:&patchedFlags];
+
+	customLog2(@"Stripped push code verification from auth.sendCode (flags %d -> %d)", flags, patchedFlags);
+	return patched;
+}
+
+__attribute__((constructor))
+static void registerTGExtraDefaults() {
+	// Push verification cannot work in a re-signed build, so this is on unless
+	// it is explicitly turned off in the menu.
+	[[NSUserDefaults standardUserDefaults] registerDefaults:@{ kForceSmsLoginCode: @YES }];
+}

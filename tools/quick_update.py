@@ -9,6 +9,7 @@ Needs the GitHub CLI (gh) logged in. Takes ~5-7 minutes instead of rebuilding Te
 import argparse
 import glob
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -29,29 +30,40 @@ def find_gh():
     raise SystemExit("gh not found: install it with `winget install --id GitHub.cli -e`")
 
 
-def gh(*args, retries=5):
+def gh(*args, retries=10):
+    # retries cover flaky connections to api.github.com (VPN/proxy drops)
     for attempt in range(retries):
         res = subprocess.run([GH, *args], capture_output=True, text=True, encoding="utf-8")
         if res.returncode == 0:
             return res.stdout.strip()
         if attempt == retries - 1:
             raise SystemExit(f"gh {' '.join(args)} failed:\n{res.stderr}")
-        time.sleep(10)
+        print(f"  gh failed, retrying ({attempt + 1}/{retries - 1})...", flush=True)
+        time.sleep(15)
+
+
+def origin_repo():
+    # `gh repo view` may resolve to the upstream remote, so read origin explicitly
+    res = subprocess.run(["git", "-C", HERE, "remote", "get-url", "origin"], capture_output=True, text=True)
+    m = re.search(r"github\.com[:/]([^/]+/[^/]+?)(?:\.git)?$", res.stdout.strip())
+    if not m:
+        raise SystemExit("could not read the GitHub repo from `git remote get-url origin`, pass --repo owner/name")
+    return m.group(1)
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--ipa", required=True, help="IPA that already has TGExtra injected")
     ap.add_argument("-o", "--output", help="default: <ipa name>-updated-<time>.ipa next to the input")
-    ap.add_argument("--repo", help="owner/name, default: the repo of the current checkout")
+    ap.add_argument("--repo", help="owner/name, default: the origin remote of this checkout")
     ap.add_argument("--ref", default="main")
     args = ap.parse_args()
 
-    repo = args.repo or gh("repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner")
+    repo = args.repo or origin_repo()
     # small margin for clock skew between this machine and GitHub
     started = datetime.fromtimestamp(time.time() - 60, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     gh("workflow", "run", "tweak.yml", "--repo", repo, "--ref", args.ref)
-    print(f"Started tweak.yml on {repo}@{args.ref}, waiting for the run...")
+    print(f"Started tweak.yml on {repo}@{args.ref}, waiting for the run...", flush=True)
 
     run_id = None
     for _ in range(30):
@@ -59,11 +71,11 @@ def main():
         out = gh("run", "list", "--repo", repo, "--workflow", "tweak.yml", "--limit", "5",
                  "--json", "databaseId,createdAt", "--jq", f'.[] | select(.createdAt >= "{started}") | .databaseId')
         if out:
-            run_id = out.splitlines()[-1]
+            run_id = out.splitlines()[0]
             break
     if run_id is None:
         raise SystemExit("could not find the started run")
-    print(f"Run: https://github.com/{repo}/actions/runs/{run_id}")
+    print(f"Run: https://github.com/{repo}/actions/runs/{run_id}", flush=True)
 
     while True:
         status = gh("run", "view", run_id, "--repo", repo, "--json", "status,conclusion", "--jq", '.status + " " + .conclusion')
