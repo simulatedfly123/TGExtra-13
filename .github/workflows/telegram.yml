@@ -9,6 +9,10 @@ on:
         default: "release-13.0.0"
         type: string
 
+permissions:
+  actions: read
+  contents: read
+
 jobs:
   telegram:
     name: Build Telegram (${{ inputs.telegram_ref }})

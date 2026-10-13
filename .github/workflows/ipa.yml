@@ -7,12 +7,20 @@ on:
         description: "Direct URL of the decrypted Telegram IPA (leave empty to use the .ipa asset of the 'ipa-source' release)"
         required: false
         type: string
+      ipa_run_id:
+        description: "ID of a 'Build Telegram from source' run whose telegram-ipa artifact to use (takes priority over the URL)"
+        required: false
+        type: string
   workflow_call:
     inputs:
       ipa_artifact:
         description: "Name of an artifact of the calling run that contains Telegram.ipa"
         required: true
         type: string
+
+permissions:
+  actions: read
+  contents: read
 
 jobs:
   build:
@@ -45,8 +53,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           IPA_URL: ${{ inputs.decrypted_ipa_url }}
+          IPA_RUN_ID: ${{ inputs.ipa_run_id }}
         run: |
-          if [ -d ipa_artifact ]; then
+          if [ -z "$(ls ipa_artifact/*.ipa 2>/dev/null)" ] && [ -n "$IPA_RUN_ID" ]; then
+            gh run download "$IPA_RUN_ID" --repo "$GITHUB_REPOSITORY" --name telegram-ipa --dir ipa_artifact
+          fi
+          if [ -n "$(ls ipa_artifact/*.ipa 2>/dev/null)" ]; then
             mv "$(ls ipa_artifact/*.ipa | head -n1)" decrypted.ipa
           elif [ -n "$IPA_URL" ]; then
             curl -L -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)" -o decrypted.ipa "$IPA_URL"
@@ -71,6 +83,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          command -v pipx >/dev/null || brew install pipx
           pipx install --force https://github.com/asdfzxcvbn/pyzule-rw/archive/main.zip
           if [[ "$(uname -m)" == "arm64" ]]; then ASSET="ipapatch.macos-arm64"; else ASSET="ipapatch.macos-amd64"; fi
           gh release download --repo asdfzxcvbn/ipapatch --pattern "$ASSET" --dir .
