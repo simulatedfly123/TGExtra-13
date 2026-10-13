@@ -1,0 +1,86 @@
+name: Build Telegram from source + TGExtra
+
+on:
+  workflow_dispatch:
+    inputs:
+      telegram_ref:
+        description: "Telegram-iOS tag to build"
+        required: true
+        default: "release-13.0.0"
+        type: string
+
+jobs:
+  telegram:
+    name: Build Telegram (${{ inputs.telegram_ref }})
+    runs-on: macos-26
+    timeout-minutes: 355
+    env:
+      # source code paths end up in the binary, keep them the same as the official CI
+      SOURCE_DIR: /Users/Shared/telegram-ios
+      BAZEL_USER_ROOT: /private/var/tmp/_bazel_containerhost
+    steps:
+      - name: Free disk space
+        run: |
+          df -h /
+          for x in /Applications/Xcode_*.app; do
+            if [ ! -L "$x" ] && [ "$x" != "/Applications/Xcode_26.6.app" ]; then
+              sudo rm -rf "$x" &
+            fi
+          done
+          wait
+          df -h /
+
+      - name: Checkout Telegram-iOS
+        env:
+          REF: ${{ inputs.telegram_ref }}
+        run: |
+          sudo mkdir -p /Users/Shared
+          sudo chown "$(whoami)" /Users/Shared
+          git clone --filter=tree:0 --branch "$REF" https://github.com/TelegramMessenger/Telegram-iOS.git "$SOURCE_DIR"
+          cd "$SOURCE_DIR"
+          git submodule update --init --recursive --depth 1 --jobs 8
+          cat versions.json
+
+      - name: Select Xcode
+        run: |
+          cd "$SOURCE_DIR"
+          XCODE_VERSION=$(python3 -c 'import json;print(json.load(open("versions.json"))["xcode"])')
+          sudo xcode-select -s "/Applications/Xcode_$XCODE_VERSION.app/Contents/Developer"
+          xcodebuild -version
+
+      - name: Build Telegram
+        run: |
+          set -x
+          cd "$SOURCE_DIR"
+          BUILD_NUMBER=$(( $(git rev-list --count HEAD) + $(cat build_number_offset) ))
+          echo "Build number: $BUILD_NUMBER"
+
+          python3 build-system/Make/ImportCertificates.py --path build-system/fake-codesigning/certs
+          python3 -u build-system/Make/Make.py \
+            --bazelUserRoot="$BAZEL_USER_ROOT" \
+            build \
+            --configurationPath="build-system/appstore-configuration.json" \
+            --codesigningInformationPath=build-system/fake-codesigning \
+            --configuration=release_arm64 \
+            --buildNumber="$BUILD_NUMBER"
+
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          for f in bazel-out/applebin_ios-ios_arm*-opt-ST-*/bin/Telegram/Telegram.ipa; do
+            cp "$f" "$GITHUB_WORKSPACE/out/Telegram.ipa"
+          done
+          ls -la "$GITHUB_WORKSPACE/out"
+          df -h /
+
+      - name: Upload Telegram IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: telegram-ipa
+          path: out/Telegram.ipa
+          retention-days: 3
+
+  tgextra:
+    name: Inject TGExtra
+    needs: telegram
+    uses: ./.github/workflows/ipa.yml
+    with:
+      ipa_artifact: telegram-ipa

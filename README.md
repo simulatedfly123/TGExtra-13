@@ -21,6 +21,7 @@ To Open Tweak menu : Longpress screen with 3 finger (if no flex injected) of 4 f
 - `messages.getSponsoredMessages` constructor updated to `0x3d6ce850`.
 - The "Disable Ads" switch no longer shares its settings key with "Disable Online Status".
 - `.github/workflows/ipa.yml` builds the tweak and injects it into a decrypted IPA in one run (URL input, or the `.ipa` asset of an `ipa-source` release).
+- `.github/workflows/telegram.yml` builds Telegram itself from the official sources (`release-13.0.0`, Xcode 26.6, the same fake-codesigning setup as Telegram's own CI) and then runs `ipa.yml` on the result, so no third-party decrypted IPA is needed.
 
 
 ## Disclaimer

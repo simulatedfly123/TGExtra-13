@@ -7,6 +7,12 @@ on:
         description: "Direct URL of the decrypted Telegram IPA (leave empty to use the .ipa asset of the 'ipa-source' release)"
         required: false
         type: string
+  workflow_call:
+    inputs:
+      ipa_artifact:
+        description: "Name of an artifact of the calling run that contains Telegram.ipa"
+        required: true
+        type: string
 
 jobs:
   build:
@@ -28,12 +34,21 @@ jobs:
           make clean package FINALPACKAGE=1 STRIP=0
           ls -la packages
 
+      - name: Download Telegram IPA artifact
+        if: ${{ inputs.ipa_artifact != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.ipa_artifact }}
+          path: ipa_artifact
+
       - name: Get decrypted IPA
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           IPA_URL: ${{ inputs.decrypted_ipa_url }}
         run: |
-          if [ -n "$IPA_URL" ]; then
+          if [ -d ipa_artifact ]; then
+            mv "$(ls ipa_artifact/*.ipa | head -n1)" decrypted.ipa
+          elif [ -n "$IPA_URL" ]; then
             curl -L -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)" -o decrypted.ipa "$IPA_URL"
           else
             gh release download ipa-source --repo "$GITHUB_REPOSITORY" --pattern '*.ipa' --output decrypted.ipa
