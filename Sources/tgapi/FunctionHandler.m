@@ -1,3 +1,5 @@
+#import "Headers.h"
+
 // Which settings belong to which account
 //
 // Requests carry no account, but the service that sends them belongs to one, and
@@ -73,8 +75,6 @@ void noteActiveAccount(NSString *account) {
 NSString *activeAccountKey(void) {
 	return [[NSUserDefaults standardUserDefaults] stringForKey:kActiveAccount];
 }
-
-#import "Headers.h"
 
 NSData *boolTrue() {
     uint8_t bytes[] = {0xB5, 0x75, 0x72, 0x99}; // boolTrue#997275b5
